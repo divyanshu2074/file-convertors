@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { EyeOff, Download, Check, Trash2, ChevronLeft, ChevronRight, ShieldAlert } from 'lucide-react';
+import { EyeOff, Download, Check, Trash2, ChevronLeft, ChevronRight, ShieldAlert, MousePointerClick } from 'lucide-react';
 import { renderPdfPage, redactPdf } from '../../lib/pdfEngine';
 import { downloadUint8Array } from '../../lib/downloadHelper';
+import { InteractivePreviewViewport } from '../InteractivePreviewViewport';
+import { TransformBox, BoxRect } from '../TransformBox';
 import confetti from 'canvas-confetti';
 
 interface RedactionBox {
@@ -23,6 +25,7 @@ export const RedactWorkspace: React.FC<RedactWorkspaceProps> = ({ pdfBuffer, fil
   const [pagePreviewUrl, setPagePreviewUrl] = useState<string>('');
   const [pageDims, setPageDims] = useState({ width: 595, height: 842 });
   const [redactions, setRedactions] = useState<RedactionBox[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
   const [done, setDone] = useState(false);
 
@@ -49,23 +52,31 @@ export const RedactWorkspace: React.FC<RedactWorkspaceProps> = ({ pdfBuffer, fil
   const handleCanvasClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!containerRef.current) return;
     const rect = containerRef.current.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const clickY = e.clientY - rect.top;
+    const clickX = Math.round(e.clientX - rect.left);
+    const clickY = Math.round(e.clientY - rect.top);
 
     const newBox: RedactionBox = {
       id: `redact-${Date.now()}`,
       page: currentPage,
-      x: clickX,
-      y: clickY,
+      x: Math.max(0, clickX - 20),
+      y: Math.max(0, clickY - 15),
       width: 140,
       height: 35,
     };
 
     setRedactions((prev) => [...prev, newBox]);
+    setSelectedId(newBox.id);
+  };
+
+  const handleUpdateBox = (id: string, newRect: BoxRect) => {
+    setRedactions((prev) =>
+      prev.map((box) => (box.id === id ? { ...box, ...newRect } : box))
+    );
   };
 
   const handleRemoveBox = (id: string) => {
     setRedactions((prev) => prev.filter((r) => r.id !== id));
+    if (selectedId === id) setSelectedId(null);
   };
 
   const handleApplyRedactions = async () => {
@@ -108,14 +119,14 @@ export const RedactWorkspace: React.FC<RedactWorkspaceProps> = ({ pdfBuffer, fil
   const currentRedactions = redactions.filter((r) => r.page === currentPage);
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       {/* Top Banner & Actions */}
       <div className="flex flex-wrap items-center justify-between gap-4 p-4 bg-neutral-900 text-white rounded-2xl shadow-sm">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-red-500/20 text-red-400 flex items-center justify-center">
             <EyeOff className="w-5 h-5" />
           </div>
-          <div>
+          <div className="text-left">
             <h4 className="text-sm font-semibold flex items-center gap-2">
               Permanent Redaction
               <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-red-600 text-white">
@@ -133,12 +144,15 @@ export const RedactWorkspace: React.FC<RedactWorkspaceProps> = ({ pdfBuffer, fil
             <button
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
               disabled={currentPage <= 1}
-              className="p-1 rounded-lg bg-neutral-800 disabled:opacity-40"
+              className="p-1 rounded-lg bg-neutral-800 disabled:opacity-40 hover:bg-neutral-700 cursor-pointer"
             >
               <ChevronLeft className="w-3.5 h-3.5" />
             </button>
             <span>Page {currentPage}</span>
-            <button onClick={() => setCurrentPage((p) => p + 1)} className="p-1 rounded-lg bg-neutral-800">
+            <button
+              onClick={() => setCurrentPage((p) => p + 1)}
+              className="p-1 rounded-lg bg-neutral-800 hover:bg-neutral-700 cursor-pointer"
+            >
               <ChevronRight className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -146,7 +160,7 @@ export const RedactWorkspace: React.FC<RedactWorkspaceProps> = ({ pdfBuffer, fil
           <button
             onClick={handleApplyRedactions}
             disabled={processing || redactions.length === 0}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-red-600 hover:bg-red-500 disabled:bg-neutral-800 text-white shadow-sm transition-all"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-red-600 hover:bg-red-500 disabled:bg-neutral-800 text-white shadow-sm transition-all cursor-pointer"
           >
             {done ? <Check className="w-4 h-4 text-white" /> : <Download className="w-4 h-4" />}
             {processing ? 'Applying Redaction...' : done ? 'Redacted!' : 'Apply Redactions & Download'}
@@ -154,49 +168,53 @@ export const RedactWorkspace: React.FC<RedactWorkspaceProps> = ({ pdfBuffer, fil
         </div>
       </div>
 
-      <p className="text-xs text-neutral-500">
-        Click on any text or graphic in the preview below to place a blackout redaction box.
-      </p>
-
-      {/* Interactive PDF Page Preview */}
-      <div className="relative max-h-[65vh] overflow-hidden rounded-xl border border-neutral-300 shadow-sm bg-neutral-100 flex items-center justify-center select-none p-2">
-        {pagePreviewUrl ? (
-          <div
-            ref={containerRef}
-            onClick={handleCanvasClick}
-            className="relative inline-block cursor-crosshair shadow-md"
-          >
-            <img src={pagePreviewUrl} alt="PDF Page Preview" className="max-h-[60vh] object-contain block" />
-
-            {/* Overlaid Redaction blackout boxes */}
-            {currentRedactions.map((box) => (
-              <div
-                key={box.id}
-                style={{
-                  position: 'absolute',
-                  left: `${box.x}px`,
-                  top: `${box.y}px`,
-                  width: `${box.width}px`,
-                  height: `${box.height}px`,
-                }}
-                className="group bg-black rounded shadow-xs flex items-center justify-end pr-1 cursor-default"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <button
-                  type="button"
-                  onClick={() => handleRemoveBox(box.id)}
-                  className="opacity-0 group-hover:opacity-100 p-1 bg-red-600 text-white rounded text-[10px] transition-opacity"
-                  title="Remove redaction box"
-                >
-                  <Trash2 className="w-3 h-3" />
-                </button>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="p-20 text-xs text-neutral-400">Loading document preview...</div>
+      <div className="flex items-center justify-between text-xs text-neutral-500 px-1">
+        <span className="flex items-center gap-1.5">
+          <MousePointerClick className="w-3.5 h-3.5 text-neutral-400" />
+          Click to create blackout box. Drag box to move, and drag 4 corner handles to resize over text columns.
+        </span>
+        {selectedId && (
+          <span className="text-red-600 font-medium">Selected Box: #{selectedId.slice(-4)}</span>
         )}
       </div>
+
+      {/* Interactive PDF Page Preview Viewport */}
+      <InteractivePreviewViewport maxHeight="64vh">
+        {() =>
+          pagePreviewUrl ? (
+            <div
+              ref={containerRef}
+              onClick={handleCanvasClick}
+              className="relative inline-block cursor-crosshair shadow-lg rounded-sm overflow-visible bg-white select-none"
+            >
+              <img
+                src={pagePreviewUrl}
+                alt="PDF Page Preview"
+                className="max-h-[58vh] object-contain block pointer-events-none"
+              />
+
+              {/* Overlaid Movable & Resizable Redaction blackout boxes */}
+              {currentRedactions.map((box) => (
+                <TransformBox
+                  key={box.id}
+                  rect={{ x: box.x, y: box.y, width: box.width, height: box.height }}
+                  onChange={(newRect) => handleUpdateBox(box.id, newRect)}
+                  onDelete={() => handleRemoveBox(box.id)}
+                  isSelected={selectedId === box.id}
+                  onSelect={() => setSelectedId(box.id)}
+                  label="Blackout"
+                  minWidth={25}
+                  minHeight={15}
+                >
+                  <div className="w-full h-full bg-black rounded shadow-xs" />
+                </TransformBox>
+              ))}
+            </div>
+          ) : (
+            <div className="p-20 text-xs text-neutral-400">Loading document preview...</div>
+          )
+        }
+      </InteractivePreviewViewport>
     </div>
   );
 };

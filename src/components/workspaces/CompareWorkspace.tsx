@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { GitCompare, ChevronLeft, ChevronRight, FileText, CheckCircle2, AlertCircle } from 'lucide-react';
 import { renderPdfPage, extractPdfText } from '../../lib/pdfEngine';
 import { UploadedFile } from '../../types';
+import { InteractivePreviewViewport } from '../InteractivePreviewViewport';
 
 interface CompareWorkspaceProps {
   files: UploadedFile[];
@@ -118,13 +119,15 @@ export const CompareWorkspace: React.FC<CompareWorkspaceProps> = ({ files }) => 
             <span className="font-semibold text-neutral-800 truncate max-w-[200px]">Doc A: {fileA.name}</span>
             <span className="text-neutral-400">Original</span>
           </div>
-          <div className="h-[48vh] flex items-center justify-center bg-neutral-50 rounded-xl overflow-hidden border border-neutral-100">
-            {docAUrl ? (
-              <img src={docAUrl} alt="Doc A Preview" className="max-h-full max-w-full object-contain" />
-            ) : (
-              <span className="text-xs text-neutral-400">Rendering...</span>
-            )}
-          </div>
+          <InteractivePreviewViewport maxHeight="48vh">
+            {() =>
+              docAUrl ? (
+                <img src={docAUrl} alt="Doc A Preview" className="max-h-[44vh] object-contain shadow-sm rounded-sm" />
+              ) : (
+                <span className="text-xs text-neutral-400 p-12">Rendering...</span>
+              )
+            }
+          </InteractivePreviewViewport>
           {textA && (
             <div className="max-h-24 overflow-y-auto p-2 bg-neutral-50 rounded-lg text-[11px] font-mono text-neutral-600">
               {textA.substring(0, 300)}...
@@ -138,13 +141,15 @@ export const CompareWorkspace: React.FC<CompareWorkspaceProps> = ({ files }) => 
             <span className="font-semibold text-neutral-800 truncate max-w-[200px]">Doc B: {fileB.name}</span>
             <span className="text-neutral-400">Modified</span>
           </div>
-          <div className="h-[48vh] flex items-center justify-center bg-neutral-50 rounded-xl overflow-hidden border border-neutral-100">
-            {docBUrl ? (
-              <img src={docBUrl} alt="Doc B Preview" className="max-h-full max-w-full object-contain" />
-            ) : (
-              <span className="text-xs text-neutral-400">Rendering...</span>
-            )}
-          </div>
+          <InteractivePreviewViewport maxHeight="48vh">
+            {() =>
+              docBUrl ? (
+                <img src={docBUrl} alt="Doc B Preview" className="max-h-[44vh] object-contain shadow-sm rounded-sm" />
+              ) : (
+                <span className="text-xs text-neutral-400 p-12">Rendering...</span>
+              )
+            }
+          </InteractivePreviewViewport>
           {textB && (
             <div className="max-h-24 overflow-y-auto p-2 bg-neutral-50 rounded-lg text-[11px] font-mono text-neutral-600">
               {textB.substring(0, 300)}...

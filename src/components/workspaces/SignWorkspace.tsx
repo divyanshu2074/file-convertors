@@ -1,7 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Pen, Type, Upload, Download, Check, RefreshCw } from 'lucide-react';
+import { Pen, Type, Upload, Download, Check, RefreshCw, ChevronLeft, ChevronRight, Stamp } from 'lucide-react';
 import { renderPdfPage, signPdf } from '../../lib/pdfEngine';
 import { downloadUint8Array } from '../../lib/downloadHelper';
+import { InteractivePreviewViewport } from '../InteractivePreviewViewport';
+import { TransformBox, BoxRect } from '../TransformBox';
 import confetti from 'canvas-confetti';
 
 interface SignWorkspaceProps {
@@ -13,12 +15,11 @@ export const SignWorkspace: React.FC<SignWorkspaceProps> = ({ pdfBuffer, fileNam
   const [mode, setMode] = useState<'draw' | 'type' | 'upload'>('draw');
   const [typedName, setTypedName] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
   const [pagePreviewUrl, setPagePreviewUrl] = useState<string>('');
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
 
   // Signature placement coordinates relative to rendered preview
-  const [signaturePos, setSignaturePos] = useState({ x: 100, y: 150, width: 140, height: 60 });
+  const [signaturePos, setSignaturePos] = useState<BoxRect>({ x: 80, y: 120, width: 160, height: 70 });
   const [pageDims, setPageDims] = useState({ width: 595, height: 842 });
   const [processing, setProcessing] = useState(false);
   const [done, setDone] = useState(false);
@@ -67,11 +68,10 @@ export const SignWorkspace: React.FC<SignWorkspaceProps> = ({ pdfBuffer, fileNam
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    const rect = canvas.getBoundingClientRect();
     ctx.lineWidth = 2.5;
     ctx.lineCap = 'round';
     ctx.strokeStyle = '#0f172a';
-    ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
+    ctx.lineTo(e.clientX - canvas.getBoundingClientRect().left, e.clientY - canvas.getBoundingClientRect().top);
     ctx.stroke();
   };
 
@@ -124,25 +124,8 @@ export const SignWorkspace: React.FC<SignWorkspaceProps> = ({ pdfBuffer, fileNam
     }
   };
 
-  // Reposition signature by clicking on the document preview
-  const handlePreviewClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!previewContainerRef.current) return;
-    const rect = previewContainerRef.current.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const clickY = e.clientY - rect.top;
-
-    setSignaturePos((prev) => ({
-      ...prev,
-      x: Math.max(0, Math.min(rect.width - prev.width, clickX - prev.width / 2)),
-      y: Math.max(0, Math.min(rect.height - prev.height, clickY - prev.height / 2)),
-    }));
-  };
-
   const handleApplySignature = async () => {
-    if (!signatureDataUrl) {
-      alert('Please create or upload a signature first!');
-      return;
-    }
+    if (!signatureDataUrl) return;
 
     try {
       setProcessing(true);
@@ -155,7 +138,7 @@ export const SignWorkspace: React.FC<SignWorkspaceProps> = ({ pdfBuffer, fileNam
       const scaleY = pageDims.height / previewH;
 
       const pdfX = signaturePos.x * scaleX;
-      // In PDF, y=0 is at the bottom!
+      // In PDF, y=0 is at the bottom
       const pdfY = (previewH - (signaturePos.y + signaturePos.height)) * scaleY;
       const pdfW = signaturePos.width * scaleX;
       const pdfH = signaturePos.height * scaleY;
@@ -182,14 +165,17 @@ export const SignWorkspace: React.FC<SignWorkspaceProps> = ({ pdfBuffer, fileNam
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
       {/* Signature creator sidebar */}
-      <div className="lg:col-span-5 space-y-5 bg-white p-5 rounded-2xl border border-neutral-200 shadow-xs">
-        <h3 className="font-semibold text-neutral-900 text-sm">1. Create Your Signature</h3>
+      <div className="lg:col-span-5 space-y-5 bg-white p-5 rounded-2xl border border-neutral-200 shadow-xs text-left">
+        <h3 className="font-semibold text-neutral-900 text-sm flex items-center gap-2">
+          <Stamp className="w-4 h-4 text-neutral-700" />
+          1. Create Your Signature
+        </h3>
 
         {/* Mode selector */}
         <div className="grid grid-cols-3 gap-1.5 p-1 bg-neutral-100 rounded-xl text-xs font-medium">
           <button
             onClick={() => setMode('draw')}
-            className={`py-2 rounded-lg flex items-center justify-center gap-1.5 transition-all ${
+            className={`py-2 rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
               mode === 'draw' ? 'bg-white text-neutral-900 shadow-xs' : 'text-neutral-500 hover:text-neutral-900'
             }`}
           >
@@ -198,7 +184,7 @@ export const SignWorkspace: React.FC<SignWorkspaceProps> = ({ pdfBuffer, fileNam
           </button>
           <button
             onClick={() => setMode('type')}
-            className={`py-2 rounded-lg flex items-center justify-center gap-1.5 transition-all ${
+            className={`py-2 rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
               mode === 'type' ? 'bg-white text-neutral-900 shadow-xs' : 'text-neutral-500 hover:text-neutral-900'
             }`}
           >
@@ -207,7 +193,7 @@ export const SignWorkspace: React.FC<SignWorkspaceProps> = ({ pdfBuffer, fileNam
           </button>
           <button
             onClick={() => setMode('upload')}
-            className={`py-2 rounded-lg flex items-center justify-center gap-1.5 transition-all ${
+            className={`py-2 rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
               mode === 'upload' ? 'bg-white text-neutral-900 shadow-xs' : 'text-neutral-500 hover:text-neutral-900'
             }`}
           >
@@ -272,12 +258,20 @@ export const SignWorkspace: React.FC<SignWorkspaceProps> = ({ pdfBuffer, fileNam
           </div>
         )}
 
+        {/* Instructions */}
+        <div className="p-3 bg-neutral-50 rounded-xl border border-neutral-200 text-xs text-neutral-600 space-y-1">
+          <p className="font-medium text-neutral-800">Move & Resize Controls:</p>
+          <p className="text-[11px] text-neutral-500 leading-normal">
+            Drag the signature stamp anywhere on the preview. Use the 4 circular corner handles to scale it to any size.
+          </p>
+        </div>
+
         {/* Apply and Download */}
-        <div className="pt-4 border-t border-neutral-100">
+        <div className="pt-2">
           <button
             onClick={handleApplySignature}
             disabled={processing || !signatureDataUrl}
-            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-xs font-semibold bg-neutral-900 hover:bg-neutral-800 disabled:bg-neutral-300 text-white shadow-sm transition-all"
+            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-xs font-semibold bg-neutral-900 hover:bg-neutral-800 disabled:bg-neutral-300 text-white shadow-sm transition-all cursor-pointer"
           >
             {done ? <Check className="w-4 h-4 text-emerald-400" /> : <Download className="w-4 h-4" />}
             {processing ? 'Applying Signature...' : done ? 'Signed & Downloaded!' : 'Apply Signature & Download'}
@@ -288,51 +282,61 @@ export const SignWorkspace: React.FC<SignWorkspaceProps> = ({ pdfBuffer, fileNam
       {/* Document Placement Preview */}
       <div className="lg:col-span-7 space-y-3">
         <div className="flex items-center justify-between">
-          <span className="text-xs font-semibold text-neutral-700">2. Position Signature on Document</span>
-          <div className="flex items-center gap-2 text-xs">
-            <span>Page:</span>
-            <input
-              type="number"
-              min={1}
-              value={currentPage}
-              onChange={(e) => setCurrentPage(Math.max(1, parseInt(e.target.value) || 1))}
-              className="w-14 px-2 py-1 rounded-lg border border-neutral-200 text-center"
-            />
+          <span className="text-xs font-semibold text-neutral-700">2. Position & Resize on Document</span>
+          <div className="flex items-center gap-1.5 text-xs">
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage <= 1}
+              className="p-1 rounded-lg border border-neutral-200 disabled:opacity-40 hover:bg-neutral-50 cursor-pointer"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+            </button>
+            <span className="font-medium px-1">Page {currentPage}</span>
+            <button
+              onClick={() => setCurrentPage((p) => p + 1)}
+              className="p-1 rounded-lg border border-neutral-200 hover:bg-neutral-50 cursor-pointer"
+            >
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
           </div>
         </div>
 
-        <p className="text-[11px] text-neutral-400">Click anywhere on the preview to position your signature stamp</p>
+        {/* Interactive Viewport with Zoom, Fit & Fullscreen */}
+        <InteractivePreviewViewport maxHeight="64vh">
+          {() =>
+            pagePreviewUrl ? (
+              <div
+                ref={previewContainerRef}
+                className="relative inline-block shadow-lg rounded-sm overflow-visible bg-white"
+              >
+                <img
+                  src={pagePreviewUrl}
+                  alt="PDF Page Preview"
+                  className="max-h-[58vh] object-contain block pointer-events-none"
+                />
 
-        {/* Interactive PDF Page Preview Container */}
-        <div className="relative max-h-[65vh] overflow-hidden rounded-xl border border-neutral-300 shadow-sm bg-neutral-100 flex items-center justify-center select-none p-2">
-          {pagePreviewUrl ? (
-            <div
-              ref={previewContainerRef}
-              onClick={handlePreviewClick}
-              className="relative inline-block cursor-crosshair shadow-md"
-            >
-              <img src={pagePreviewUrl} alt="PDF Page Preview" className="max-h-[60vh] object-contain block" />
-
-              {/* Draggable/Placed Signature overlay stamp */}
-              {signatureDataUrl && (
-                <div
-                  style={{
-                    position: 'absolute',
-                    left: `${signaturePos.x}px`,
-                    top: `${signaturePos.y}px`,
-                    width: `${signaturePos.width}px`,
-                    height: `${signaturePos.height}px`,
-                  }}
-                  className="border-2 border-dashed border-rose-500 bg-rose-500/10 rounded pointer-events-none flex items-center justify-center p-1"
-                >
-                  <img src={signatureDataUrl} alt="Signature Stamp" className="max-w-full max-h-full object-contain" />
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="p-20 text-xs text-neutral-400">Rendering preview...</div>
-          )}
-        </div>
+                {/* Movable and Resizable Signature Stamp */}
+                {signatureDataUrl && (
+                  <TransformBox
+                    rect={signaturePos}
+                    onChange={(newRect) => setSignaturePos(newRect)}
+                    label="Signature"
+                    minWidth={50}
+                    minHeight={25}
+                  >
+                    <img
+                      src={signatureDataUrl}
+                      alt="Signature Stamp"
+                      className="w-full h-full object-contain pointer-events-none"
+                    />
+                  </TransformBox>
+                )}
+              </div>
+            ) : (
+              <div className="p-20 text-xs text-neutral-400">Rendering preview...</div>
+            )
+          }
+        </InteractivePreviewViewport>
       </div>
     </div>
   );

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Crop, Download, Check, ChevronLeft, ChevronRight } from 'lucide-react';
 import { renderPdfPage, cropPdf } from '../../lib/pdfEngine';
 import { downloadUint8Array } from '../../lib/downloadHelper';
+import { InteractivePreviewViewport } from '../InteractivePreviewViewport';
 import confetti from 'canvas-confetti';
 
 interface CropWorkspaceProps {
@@ -145,26 +146,28 @@ export const CropWorkspace: React.FC<CropWorkspaceProps> = ({ pdfBuffer, fileNam
           </div>
         </div>
 
-        <div className="relative max-h-[62vh] overflow-hidden rounded-xl border border-neutral-300 shadow-sm bg-neutral-100 flex items-center justify-center p-4">
-          {pagePreviewUrl ? (
-            <div className="relative shadow-md">
-              <img src={pagePreviewUrl} alt="Crop Preview" className="max-h-[55vh] object-contain" />
-              {/* Overlaid crop box border */}
-              <div
-                style={{
-                  position: 'absolute',
-                  top: `${margins.top * 0.7}px`,
-                  bottom: `${margins.bottom * 0.7}px`,
-                  left: `${margins.left * 0.7}px`,
-                  right: `${margins.right * 0.7}px`,
-                }}
-                className="border-2 border-dashed border-rose-500 bg-rose-500/10 pointer-events-none"
-              />
-            </div>
-          ) : (
-            <span className="text-xs text-neutral-400 p-20">Rendering preview...</span>
-          )}
-        </div>
+        <InteractivePreviewViewport maxHeight="64vh">
+          {() =>
+            pagePreviewUrl ? (
+              <div className="relative shadow-lg rounded-sm overflow-hidden bg-white">
+                <img src={pagePreviewUrl} alt="Crop Preview" className="max-h-[58vh] object-contain pointer-events-none" />
+                {/* Overlaid crop box border */}
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: `${margins.top * 0.7}px`,
+                    bottom: `${margins.bottom * 0.7}px`,
+                    left: `${margins.left * 0.7}px`,
+                    right: `${margins.right * 0.7}px`,
+                  }}
+                  className="border-2 border-dashed border-rose-500 bg-rose-500/10 pointer-events-none"
+                />
+              </div>
+            ) : (
+              <span className="text-xs text-neutral-400 p-20">Rendering preview...</span>
+            )
+          }
+        </InteractivePreviewViewport>
       </div>
     </div>
   );
