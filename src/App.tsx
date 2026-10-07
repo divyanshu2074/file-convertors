@@ -132,15 +132,6 @@ export function App() {
               <Terminal className="w-3.5 h-3.5 text-emerald-600" />
               <span>Live Changelog (CLI Stream)</span>
             </button>
-
-            <a
-              href="https://github.com/divyanshu2074/file-convertors"
-              target="_blank"
-              rel="noreferrer"
-              className="text-neutral-600 hover:text-neutral-900 underline"
-            >
-              GitHub Repository
-            </a>
           </div>
         </div>
       </footer>
