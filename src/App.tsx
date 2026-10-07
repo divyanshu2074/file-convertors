@@ -2,14 +2,17 @@ import React, { useState, useMemo } from 'react';
 import { Header } from './components/Header';
 import { ToolCard } from './components/ToolCard';
 import { WorkspaceModal } from './components/WorkspaceModal';
+import { RetroCliDashboard } from './components/RetroCliDashboard';
+import { OfflineCacheButton } from './components/OfflineCacheButton';
 import { TOOLS, CATEGORIES } from './data/tools';
 import { ToolDef } from './types';
-import { ShieldCheck, Cpu, Zap, Lock, Sparkles } from 'lucide-react';
+import { ShieldCheck, Cpu, Zap, Lock, Sparkles, Terminal } from 'lucide-react';
 
 export function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [activeTool, setActiveTool] = useState<ToolDef | null>(null);
+  const [showChangelog, setShowChangelog] = useState(false);
 
   // Filter tools based on category and search query
   const filteredTools = useMemo(() => {
@@ -34,6 +37,7 @@ export function App() {
         selectedCategory={selectedCategory}
         setSelectedCategory={setSelectedCategory}
         categories={CATEGORIES}
+        onOpenChangelog={() => setShowChangelog(true)}
       />
 
       {/* Main Content */}
@@ -67,6 +71,9 @@ export function App() {
             </div>
           </div>
         )}
+
+        {/* Offline Cache Banner */}
+        <OfflineCacheButton variant="full" />
 
         {/* Tools Section */}
         <div className="space-y-4">
@@ -117,6 +124,15 @@ export function App() {
             <span>All document operations run 100% locally in your web browser.</span>
           </div>
           <div className="flex items-center gap-4">
+            {/* Live Changelog CLI link */}
+            <button
+              onClick={() => setShowChangelog(true)}
+              className="inline-flex items-center gap-1.5 text-neutral-700 hover:text-emerald-700 font-medium transition-colors cursor-pointer"
+            >
+              <Terminal className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Live Changelog (CLI Stream)</span>
+            </button>
+
             <a
               href="https://github.com/divyanshu2074/file-convertors"
               target="_blank"
@@ -131,6 +147,9 @@ export function App() {
 
       {/* Active Workspace Modal */}
       {activeTool && <WorkspaceModal tool={activeTool} onClose={() => setActiveTool(null)} />}
+
+      {/* Retro CLI Live Changelog Dashboard Modal */}
+      {showChangelog && <RetroCliDashboard onClose={() => setShowChangelog(false)} />}
     </div>
   );
 }

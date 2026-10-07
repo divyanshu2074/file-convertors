@@ -1,4 +1,6 @@
+import React from 'react';
 import { ShieldCheck, Search, Zap, FileSpreadsheet } from 'lucide-react';
+import { OfflineCacheButton } from './OfflineCacheButton';
 
 interface HeaderProps {
   searchQuery: string;
@@ -6,6 +8,7 @@ interface HeaderProps {
   selectedCategory: string;
   setSelectedCategory: (category: any) => void;
   categories: readonly { id: string; label: string }[];
+  onOpenChangelog?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -14,6 +17,7 @@ export const Header: React.FC<HeaderProps> = ({
   selectedCategory,
   setSelectedCategory,
   categories,
+  onOpenChangelog,
 }) => {
   return (
     <header className="border-b border-neutral-200 bg-white/80 backdrop-blur-md sticky top-0 z-40">
@@ -49,7 +53,19 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
 
           {/* Right Links */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <OfflineCacheButton variant="compact" />
+
+            {onOpenChangelog && (
+              <button
+                onClick={onOpenChangelog}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition-colors border border-emerald-200/60"
+                title="Open live retro CLI changelog"
+              >
+                <span>CLI_LOG</span>
+              </button>
+            )}
+
             <a
               href="https://github.com/divyanshu2074/file-convertors"
               target="_blank"
