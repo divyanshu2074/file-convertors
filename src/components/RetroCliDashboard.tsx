@@ -19,7 +19,51 @@ export const RetroCliDashboard: React.FC<RetroCliDashboardProps> = ({ onClose })
   const [logs, setLogs] = useState<string[]>([]);
   const [isStreaming, setIsStreaming] = useState(true);
   const [scanlines, setScanlines] = useState(true);
+  const [commandInput, setCommandInput] = useState('');
   const terminalEndRef = useRef<HTMLDivElement>(null);
+
+  const handleCommandSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const cmd = commandInput.trim().toLowerCase();
+    setCommandInput('');
+    if (!cmd) return;
+
+    setLogs((prev) => [...prev, `guest@localpdf:~$ ${cmd}`]);
+
+    if (cmd === 'clear') {
+      setLogs([]);
+    } else if (cmd === 'exit' || cmd === 'quit') {
+      onClose();
+    } else if (cmd === 'help') {
+      setLogs((prev) => [
+        ...prev,
+        '--- LOCALPDF CLI SYSTEM COMMANDS ---',
+        '  help       - Display available CLI commands',
+        '  stats      - View runtime telemetry & memory statistics',
+        '  tools      - List all 28 client-side PDF manipulation tools',
+        '  clear      - Clear terminal console screen',
+        '  exit       - Close telemetry terminal',
+      ]);
+    } else if (cmd === 'stats') {
+      setLogs((prev) => [
+        ...prev,
+        `[SYS_STATS] ARCHITECTURE: 100% Client-Side WebAssembly`,
+        `[SYS_STATS] PRIVACY LEVEL: MAXIMAL (Zero network bytes uploaded)`,
+        `[SYS_STATS] ACTIVE RUNTIME: React 19 + Vite 8 + Web Workers`,
+        `[SYS_STATS] MEMORY: Clean in-memory ArrayBuffers`,
+      ]);
+    } else if (cmd === 'tools') {
+      setLogs((prev) => [
+        ...prev,
+        '[TOOLS] 28 Local Tools Loaded: Merge, Split, Compress, PDF to Word, PDF to PPTX, PDF to Excel, Word to PDF, PPTX to PDF, Excel to PDF, Edit, Sign, Watermark, Rotate, Crop, Page Numbers, Redact, Protect, Unlock, PDF/A, Repair, OCR, Compare, Forms, Scan, etc.',
+      ]);
+    } else {
+      setLogs((prev) => [
+        ...prev,
+        `bash: command not found: ${cmd}. Type 'help' for available commands.`,
+      ]);
+    }
+  };
 
   // Auto-scroll terminal
   useEffect(() => {
@@ -223,6 +267,18 @@ export const RetroCliDashboard: React.FC<RetroCliDashboardProps> = ({ onClose })
             })}
             <div ref={terminalEndRef} />
           </div>
+
+          {/* Interactive Command Prompt Line */}
+          <form onSubmit={handleCommandSubmit} className="flex items-center gap-2 pt-2 border-t border-emerald-500/10 text-xs">
+            <span className="text-cyan-400">guest@localpdf</span>:<span className="text-amber-400">~/file-convertors</span>$&nbsp;
+            <input
+              type="text"
+              value={commandInput}
+              onChange={(e) => setCommandInput(e.target.value)}
+              placeholder="type 'help', 'stats', 'tools', 'clear', or 'exit'..."
+              className="flex-1 bg-transparent border-none text-emerald-300 font-mono text-xs focus:outline-none placeholder-emerald-900"
+            />
+          </form>
 
           {/* Structured Commit Cards Section */}
           {commits.length > 0 && (
