@@ -8,7 +8,7 @@ export async function mergePdfs(pdfBuffers: ArrayBuffer[]): Promise<Uint8Array> 
   const mergedPdf = await PDFDocument.create();
 
   for (const buffer of pdfBuffers) {
-    const srcDoc = await PDFDocument.load(buffer, { ignoreEncryption: true });
+    const srcDoc = await PDFDocument.load(buffer.slice(0), { ignoreEncryption: true });
     const copiedPages = await mergedPdf.copyPages(srcDoc, srcDoc.getPageIndices());
     for (const page of copiedPages) {
       mergedPdf.addPage(page);
@@ -25,7 +25,7 @@ export async function splitPdf(
   pdfBuffer: ArrayBuffer,
   pageGroups: number[][] // 1-based page numbers per group
 ): Promise<{ filename: string; data: Uint8Array }[]> {
-  const srcDoc = await PDFDocument.load(pdfBuffer, { ignoreEncryption: true });
+  const srcDoc = await PDFDocument.load(pdfBuffer.slice(0), { ignoreEncryption: true });
   const results: { filename: string; data: Uint8Array }[] = [];
 
   for (let i = 0; i < pageGroups.length; i++) {
@@ -56,7 +56,7 @@ export async function organizePdf(
   pdfBuffer: ArrayBuffer,
   pageOperations: { originalPage: number; rotation: number }[] // 1-based originalPage
 ): Promise<Uint8Array> {
-  const srcDoc = await PDFDocument.load(pdfBuffer, { ignoreEncryption: true });
+  const srcDoc = await PDFDocument.load(pdfBuffer.slice(0), { ignoreEncryption: true });
   const newDoc = await PDFDocument.create();
 
   for (const op of pageOperations) {
@@ -80,7 +80,7 @@ export async function rotatePdf(
   angle: number, // 90, 180, 270
   selectedPages?: number[] // 1-based, or all if omitted
 ): Promise<Uint8Array> {
-  const doc = await PDFDocument.load(pdfBuffer, { ignoreEncryption: true });
+  const doc = await PDFDocument.load(pdfBuffer.slice(0), { ignoreEncryption: true });
   const count = doc.getPageCount();
 
   for (let i = 0; i < count; i++) {
@@ -108,7 +108,7 @@ export async function addPageNumbers(
     margin?: number;
   }
 ): Promise<Uint8Array> {
-  const doc = await PDFDocument.load(pdfBuffer, { ignoreEncryption: true });
+  const doc = await PDFDocument.load(pdfBuffer.slice(0), { ignoreEncryption: true });
   const font = await doc.embedFont(StandardFonts.Helvetica);
   const count = doc.getPageCount();
   const fontSize = options.fontSize || 10;
@@ -170,7 +170,7 @@ export async function watermarkPdf(
     colorHex?: string;
   }
 ): Promise<Uint8Array> {
-  const doc = await PDFDocument.load(pdfBuffer, { ignoreEncryption: true });
+  const doc = await PDFDocument.load(pdfBuffer.slice(0), { ignoreEncryption: true });
   const font = await doc.embedFont(StandardFonts.HelveticaBold);
   const count = doc.getPageCount();
   const opacity = options.opacity ?? 0.3;
@@ -223,7 +223,7 @@ export async function cropPdf(
   pdfBuffer: ArrayBuffer,
   margins: { top: number; bottom: number; left: number; right: number }
 ): Promise<Uint8Array> {
-  const doc = await PDFDocument.load(pdfBuffer, { ignoreEncryption: true });
+  const doc = await PDFDocument.load(pdfBuffer.slice(0), { ignoreEncryption: true });
   const count = doc.getPageCount();
 
   for (let i = 0; i < count; i++) {
@@ -247,7 +247,7 @@ export async function redactPdf(
   pdfBuffer: ArrayBuffer,
   redactions: { page: number; x: number; y: number; width: number; height: number }[]
 ): Promise<Uint8Array> {
-  const doc = await PDFDocument.load(pdfBuffer, { ignoreEncryption: true });
+  const doc = await PDFDocument.load(pdfBuffer.slice(0), { ignoreEncryption: true });
 
   for (const r of redactions) {
     const pageIdx = r.page - 1;
@@ -274,7 +274,7 @@ export async function signPdf(
   signatureDataUrl: string,
   placement: { page: number; x: number; y: number; width: number; height: number }
 ): Promise<Uint8Array> {
-  const doc = await PDFDocument.load(pdfBuffer, { ignoreEncryption: true });
+  const doc = await PDFDocument.load(pdfBuffer.slice(0), { ignoreEncryption: true });
   const pageIdx = placement.page - 1;
   if (pageIdx < 0 || pageIdx >= doc.getPageCount()) {
     throw new Error(`Invalid page number ${placement.page}`);
@@ -312,7 +312,7 @@ export async function editPdf(
     fontSize?: number;
   }[]
 ): Promise<Uint8Array> {
-  const doc = await PDFDocument.load(pdfBuffer, { ignoreEncryption: true });
+  const doc = await PDFDocument.load(pdfBuffer.slice(0), { ignoreEncryption: true });
   const font = await doc.embedFont(StandardFonts.Helvetica);
 
   for (const ann of annotations) {
@@ -388,7 +388,7 @@ export async function pdfToJpg(
   pdfBuffer: ArrayBuffer,
   options?: { scale?: number; format?: 'image/jpeg' | 'image/png'; quality?: number }
 ): Promise<{ pageNumber: number; dataUrl: string; blob: Blob }[]> {
-  const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(pdfBuffer) });
+  const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(pdfBuffer.slice(0)) });
   const pdf = await loadingTask.promise;
   const count = pdf.numPages;
   const results: { pageNumber: number; dataUrl: string; blob: Blob }[] = [];
@@ -428,7 +428,7 @@ export async function renderPdfPage(
   pageNumber: number,
   scale = 1.0
 ): Promise<{ canvas: HTMLCanvasElement; width: number; height: number }> {
-  const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(pdfBuffer) });
+  const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(pdfBuffer.slice(0)) });
   const pdf = await loadingTask.promise;
   const page = await pdf.getPage(pageNumber);
   const viewport = page.getViewport({ scale });
@@ -454,7 +454,7 @@ export async function renderThumbnails(
   pdfBuffer: ArrayBuffer,
   thumbnailScale = 0.3
 ): Promise<{ pageNumber: number; dataUrl: string; width: number; height: number }[]> {
-  const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(pdfBuffer) });
+  const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(pdfBuffer.slice(0)) });
   const pdf = await loadingTask.promise;
   const count = pdf.numPages;
   const thumbnails = [];
@@ -517,7 +517,7 @@ export async function compressPdf(
 export async function extractPdfText(
   pdfBuffer: ArrayBuffer
 ): Promise<{ fullText: string; pages: { pageNumber: number; text: string; items: any[] }[] }> {
-  const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(pdfBuffer) });
+  const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(pdfBuffer.slice(0)) });
   const pdf = await loadingTask.promise;
   const count = pdf.numPages;
   const pages = [];
@@ -563,7 +563,7 @@ export async function extractPdfText(
  * Convert PDF to PDF/A archive standard
  */
 export async function convertToPdfA(pdfBuffer: ArrayBuffer): Promise<Uint8Array> {
-  const doc = await PDFDocument.load(pdfBuffer, { ignoreEncryption: true });
+  const doc = await PDFDocument.load(pdfBuffer.slice(0), { ignoreEncryption: true });
 
   doc.setTitle(doc.getTitle() || 'Archived Document');
   doc.setProducer('PaperWork Local PDF/A Engine');
@@ -581,7 +581,7 @@ export async function convertToPdfA(pdfBuffer: ArrayBuffer): Promise<Uint8Array>
  */
 export async function repairPdf(pdfBuffer: ArrayBuffer): Promise<Uint8Array> {
   try {
-    const doc = await PDFDocument.load(pdfBuffer, {
+    const doc = await PDFDocument.load(pdfBuffer.slice(0), {
       ignoreEncryption: true,
       parseSpeed: 1,
       throwOnInvalidObject: false,
@@ -606,7 +606,7 @@ export async function repairPdf(pdfBuffer: ArrayBuffer): Promise<Uint8Array> {
  * Protect PDF with password
  */
 export async function protectPdf(pdfBuffer: ArrayBuffer, _password: string): Promise<Uint8Array> {
-  const doc = await PDFDocument.load(pdfBuffer, { ignoreEncryption: true });
+  const doc = await PDFDocument.load(pdfBuffer.slice(0), { ignoreEncryption: true });
   // Note: pdf-lib encrypts on save when configured or we mark secure metadata
   doc.setSubject(`[Protected Document: ${new Date().toISOString()}]`);
   return await doc.save();
@@ -616,7 +616,7 @@ export async function protectPdf(pdfBuffer: ArrayBuffer, _password: string): Pro
  * Unlock PDF
  */
 export async function unlockPdf(pdfBuffer: ArrayBuffer, _password?: string): Promise<Uint8Array> {
-  const doc = await PDFDocument.load(pdfBuffer, { ignoreEncryption: true });
+  const doc = await PDFDocument.load(pdfBuffer.slice(0), { ignoreEncryption: true });
   return await doc.save();
 }
 
@@ -627,7 +627,7 @@ export async function inspectAndFillPdfForm(
   pdfBuffer: ArrayBuffer,
   fieldValues?: Record<string, string | boolean>
 ): Promise<{ fields: { name: string; type: string; value: string }[]; updatedBuffer: Uint8Array }> {
-  const doc = await PDFDocument.load(pdfBuffer, { ignoreEncryption: true });
+  const doc = await PDFDocument.load(pdfBuffer.slice(0), { ignoreEncryption: true });
   const form = doc.getForm();
   const fields = form.getFields().map((f) => {
     const name = f.getName();
