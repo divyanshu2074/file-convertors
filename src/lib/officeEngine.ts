@@ -328,94 +328,302 @@ export async function convertPdfToExcel(pdfBuffer: ArrayBuffer): Promise<Blob> {
 
 /**
  * Word (.docx) to PDF
- * Converts docx text and formatting into PDF pages
+ * Converts docx semantic HTML (headings, paragraphs, bold/italic, lists, tables) into clean styled PDF pages
  */
 export async function convertDocxToPdf(docxBuffer: ArrayBuffer): Promise<Uint8Array> {
-  const result = await mammoth.extractRawText({ arrayBuffer: docxBuffer });
-  const rawText = result.value || 'Empty Document';
+  let html = '';
+  try {
+    const safeBuffer = docxBuffer.slice(0);
+    // Mammoth accepts { arrayBuffer } in browser, { buffer } in Node
+    const mammothInput: any =
+      typeof Buffer !== 'undefined'
+        ? { buffer: Buffer.from(safeBuffer) }
+        : { arrayBuffer: safeBuffer };
+
+    const result = await mammoth.convertToHtml(mammothInput);
+    html = result.value || '';
+  } catch {
+    const rawRes = await mammoth.extractRawText({ arrayBuffer: docxBuffer.slice(0) });
+    html = (rawRes.value || '')
+      .split('\n')
+      .map((l) => `<p>${l}</p>`)
+      .join('');
+  }
 
   const doc = await PDFDocument.create();
-  const font = await doc.embedFont(StandardFonts.Helvetica);
-  const boldFont = await doc.embedFont(StandardFonts.HelveticaBold);
+  const fontRegular = await doc.embedFont(StandardFonts.Helvetica);
+  const fontBold = await doc.embedFont(StandardFonts.HelveticaBold);
+  const fontOblique = await doc.embedFont(StandardFonts.HelveticaOblique);
 
-  const lines = rawText.split('\n');
-  const maxLinesPerPage = 42;
-  const fontSize = 11;
-  const lineHeight = 16;
-  const margin = 50;
-  const pageWidth = 595.28; // A4
-  const pageHeight = 841.89;
+  const pageWidth = 595.28; // Standard A4 width
+  const pageHeight = 841.89; // Standard A4 height
+  const marginX = 54; // 0.75 in
+  const marginTop = 54;
+  const marginBottom = 54;
+  const contentWidth = pageWidth - marginX * 2;
 
   let currentPage = doc.addPage([pageWidth, pageHeight]);
-  let currentY = pageHeight - margin;
-  let lineCountOnPage = 0;
+  let currentY = pageHeight - marginTop;
 
-  // Add header
-  currentPage.drawText('Document Converted from Word', {
-    x: margin,
-    y: currentY,
-    size: 9,
-    font,
-    color: rgb(0.5, 0.5, 0.5),
-  });
-  currentY -= 25;
-
-  for (const line of lines) {
-    if (lineCountOnPage >= maxLinesPerPage || currentY < margin + 20) {
+  function ensureSpace(neededHeight: number) {
+    if (currentY - neededHeight < marginBottom) {
       currentPage = doc.addPage([pageWidth, pageHeight]);
-      currentY = pageHeight - margin;
-      lineCountOnPage = 0;
+      currentY = pageHeight - marginTop;
+    }
+  }
+
+  // Parse HTML elements
+  interface RenderBlock {
+    type: 'h1' | 'h2' | 'h3' | 'p' | 'li' | 'table-row';
+    cells?: string[];
+    spans: { text: string; bold: boolean; italic: boolean }[];
+  }
+
+  const blocks: RenderBlock[] = [];
+
+  // Parse HTML strings safely using DOMParser if in browser, or regex parser fallback
+  if (typeof DOMParser !== 'undefined') {
+    const parser = new DOMParser();
+    const docParsed = parser.parseFromString(html, 'text/html');
+
+    function extractSpans(node: Node): { text: string; bold: boolean; italic: boolean }[] {
+      const spans: { text: string; bold: boolean; italic: boolean }[] = [];
+
+      function walk(n: Node, isBold: boolean, isItalic: boolean) {
+        if (n.nodeType === Node.TEXT_NODE) {
+          const txt = n.textContent || '';
+          if (txt) {
+            spans.push({ text: txt, bold: isBold, italic: isItalic });
+          }
+        } else if (n.nodeType === Node.ELEMENT_NODE) {
+          const el = n as HTMLElement;
+          const tag = el.tagName.toLowerCase();
+          const bold = isBold || tag === 'strong' || tag === 'b' || tag === 'h1' || tag === 'h2' || tag === 'h3';
+          const italic = isItalic || tag === 'em' || tag === 'i';
+
+          for (const child of Array.from(el.childNodes)) {
+            walk(child, bold, italic);
+          }
+        }
+      }
+
+      walk(node, false, false);
+      return spans;
     }
 
-    const trimmed = line.trim();
-    if (!trimmed) {
-      currentY -= lineHeight / 2;
+    const bodyNodes = Array.from(docParsed.body.children);
+    if (bodyNodes.length === 0 && docParsed.body.textContent) {
+      blocks.push({
+        type: 'p',
+        spans: [{ text: docParsed.body.textContent, bold: false, italic: false }],
+      });
+    }
+
+    for (const el of bodyNodes) {
+      const tag = el.tagName.toLowerCase();
+      if (tag === 'h1') {
+        blocks.push({ type: 'h1', spans: extractSpans(el) });
+      } else if (tag === 'h2') {
+        blocks.push({ type: 'h2', spans: extractSpans(el) });
+      } else if (tag === 'h3' || tag === 'h4' || tag === 'h5' || tag === 'h6') {
+        blocks.push({ type: 'h3', spans: extractSpans(el) });
+      } else if (tag === 'ul' || tag === 'ol') {
+        for (const li of Array.from(el.querySelectorAll('li'))) {
+          blocks.push({ type: 'li', spans: extractSpans(li) });
+        }
+      } else if (tag === 'table') {
+        for (const tr of Array.from(el.querySelectorAll('tr'))) {
+          const rowCells = Array.from(tr.querySelectorAll('th, td')).map((c) => c.textContent?.trim() || '');
+          if (rowCells.length > 0) {
+            blocks.push({
+              type: 'table-row',
+              cells: rowCells,
+              spans: [],
+            });
+          }
+        }
+      } else {
+        blocks.push({ type: 'p', spans: extractSpans(el) });
+      }
+    }
+  } else {
+    // Regex based node parser fallback for server/headless environments
+    const regex = /<(h[1-3]|p|li|tr)[^>]*>(.*?)<\/\1>/gi;
+    let match: RegExpExecArray | null;
+    while ((match = regex.exec(html)) !== null) {
+      const tag = match[1].toLowerCase() as any;
+      const inner = match[2];
+
+      if (tag === 'tr') {
+        const cellMatches = [...inner.matchAll(/<t[hd][^>]*>(.*?)<\/t[hd]>/gi)];
+        const cells = cellMatches.map((m) => m[1].replace(/<[^>]+>/g, '').trim());
+        if (cells.length > 0) {
+          blocks.push({ type: 'table-row', cells, spans: [] });
+        }
+      } else {
+        const isHeading = tag.startsWith('h');
+        const clean = inner.replace(/<[^>]+>/g, '').trim();
+        if (clean) {
+          blocks.push({
+            type: tag === 'li' ? 'li' : isHeading ? tag : 'p',
+            spans: [{ text: clean, bold: isHeading || /<(strong|b)/i.test(inner), italic: /<(em|i)/i.test(inner) }],
+          });
+        }
+      }
+    }
+  }
+
+  // Draw blocks onto PDF pages
+  for (const block of blocks) {
+    if (block.type === 'table-row' && block.cells && block.cells.length > 0) {
+      ensureSpace(24);
+      const colCount = block.cells.length;
+      const colWidth = contentWidth / colCount;
+
+      for (let c = 0; c < colCount; c++) {
+        const cellText = block.cells[c];
+        const cellX = marginX + c * colWidth + 4;
+        const cellFontSize = 9.5;
+        const truncated = fontRegular.widthOfTextAtSize(cellText, cellFontSize) > colWidth - 8
+          ? cellText.slice(0, 20) + '...'
+          : cellText;
+
+        currentPage.drawText(truncated, {
+          x: cellX,
+          y: currentY - 12,
+          size: cellFontSize,
+          font: fontRegular,
+          color: rgb(0.15, 0.15, 0.15),
+        });
+      }
+
+      // Draw bottom row line
+      currentPage.drawLine({
+        start: { x: marginX, y: currentY - 18 },
+        end: { x: marginX + contentWidth, y: currentY - 18 },
+        thickness: 0.5,
+        color: rgb(0.85, 0.85, 0.85),
+      });
+
+      currentY -= 22;
       continue;
     }
 
-    const isHeading = trimmed.length < 50 && trimmed.toUpperCase() === trimmed && /[A-Z]/.test(trimmed);
+    let fontSize = 10.5;
+    let lineHeight = 15;
+    let spaceBefore = 4;
+    let spaceAfter = 6;
 
-    // Simple word wrapping for long lines
-    const words = trimmed.split(' ');
-    let currentLineText = '';
+    if (block.type === 'h1') {
+      fontSize = 20;
+      lineHeight = 26;
+      spaceBefore = 14;
+      spaceAfter = 10;
+    } else if (block.type === 'h2') {
+      fontSize = 15;
+      lineHeight = 20;
+      spaceBefore = 10;
+      spaceAfter = 8;
+    } else if (block.type === 'h3') {
+      fontSize = 12.5;
+      lineHeight = 17;
+      spaceBefore = 8;
+      spaceAfter = 6;
+    } else if (block.type === 'li') {
+      fontSize = 10.5;
+      lineHeight = 15;
+      spaceBefore = 2;
+      spaceAfter = 4;
+    }
 
-    for (const word of words) {
-      const testLine = currentLineText ? `${currentLineText} ${word}` : word;
-      const textWidth = font.widthOfTextAtSize(testLine, fontSize);
+    ensureSpace(spaceBefore + lineHeight + spaceAfter);
+    currentY -= spaceBefore;
 
-      if (textWidth > pageWidth - margin * 2 && currentLineText) {
-        currentPage.drawText(currentLineText, {
-          x: margin,
-          y: currentY,
-          size: fontSize,
-          font: isHeading ? boldFont : font,
-          color: rgb(0.1, 0.1, 0.1),
-        });
-        currentY -= lineHeight;
-        lineCountOnPage++;
-        currentLineText = word;
+    const isLi = block.type === 'li';
+    const indentX = isLi ? marginX + 16 : marginX;
 
-        if (currentY < margin + 20) {
-          currentPage = doc.addPage([pageWidth, pageHeight]);
-          currentY = pageHeight - margin;
-          lineCountOnPage = 0;
-        }
-      } else {
-        currentLineText = testLine;
+    if (isLi) {
+      currentPage.drawText('•', {
+        x: marginX + 4,
+        y: currentY - fontSize + 2,
+        size: fontSize,
+        font: fontBold,
+        color: rgb(0.2, 0.2, 0.2),
+      });
+    }
+
+    // Word wrap and draw spans across lines
+    const wordsWithFormat: { text: string; bold: boolean; italic: boolean }[] = [];
+    for (const span of block.spans) {
+      const parts = span.text.split(/(\s+)/);
+      for (const p of parts) {
+        if (!p) continue;
+        wordsWithFormat.push({ text: p, bold: span.bold, italic: span.italic });
       }
     }
 
-    if (currentLineText) {
-      currentPage.drawText(currentLineText, {
-        x: margin,
-        y: currentY,
-        size: fontSize,
-        font: isHeading ? boldFont : font,
-        color: rgb(0.1, 0.1, 0.1),
-      });
-      currentY -= lineHeight;
-      lineCountOnPage++;
+    interface FormattedLineWord {
+      text: string;
+      bold: boolean;
+      italic: boolean;
+      width: number;
     }
+
+    let currentLineWords: FormattedLineWord[] = [];
+    let currentLineWidth = 0;
+    const maxLineWidth = contentWidth - (isLi ? 16 : 0);
+
+    for (const item of wordsWithFormat) {
+      const wordFont = item.bold ? fontBold : item.italic ? fontOblique : fontRegular;
+      const wordW = wordFont.widthOfTextAtSize(item.text, fontSize);
+
+      if (currentLineWidth + wordW > maxLineWidth && currentLineWords.length > 0 && item.text.trim()) {
+        // Draw current line
+        ensureSpace(lineHeight);
+        let drawX = indentX;
+        for (const w of currentLineWords) {
+          const f = w.bold ? fontBold : w.italic ? fontOblique : fontRegular;
+          currentPage.drawText(w.text, {
+            x: drawX,
+            y: currentY - fontSize + 2,
+            size: fontSize,
+            font: f,
+            color: block.type.startsWith('h') ? rgb(0.1, 0.1, 0.15) : rgb(0.2, 0.2, 0.2),
+          });
+          drawX += w.width;
+        }
+
+        currentY -= lineHeight;
+        currentLineWords = [];
+        currentLineWidth = 0;
+      }
+
+      if (currentLineWords.length === 0 && !item.text.trim()) {
+        continue; // skip leading space on newline
+      }
+
+      currentLineWords.push({ ...item, width: wordW });
+      currentLineWidth += wordW;
+    }
+
+    if (currentLineWords.length > 0) {
+      ensureSpace(lineHeight);
+      let drawX = indentX;
+      for (const w of currentLineWords) {
+        const f = w.bold ? fontBold : w.italic ? fontOblique : fontRegular;
+        currentPage.drawText(w.text, {
+          x: drawX,
+          y: currentY - fontSize + 2,
+          size: fontSize,
+          font: f,
+          color: block.type.startsWith('h') ? rgb(0.1, 0.1, 0.15) : rgb(0.2, 0.2, 0.2),
+        });
+        drawX += w.width;
+      }
+      currentY -= lineHeight;
+    }
+
+    currentY -= spaceAfter;
   }
 
   return await doc.save();
