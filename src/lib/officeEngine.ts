@@ -1,45 +1,238 @@
-import { Document, Paragraph, TextRun, Packer, HeadingLevel } from 'docx';
+import {
+  Document,
+  Paragraph,
+  TextRun,
+  Packer,
+  HeadingLevel,
+  Table,
+  TableRow,
+  TableCell,
+  WidthType,
+  BorderStyle,
+  PageBreak,
+} from 'docx';
 import PptxGenJS from 'pptxgenjs';
 import * as XLSX from 'xlsx';
 import mammoth from 'mammoth';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import { extractPdfText, pdfToJpg } from './pdfEngine';
+import { pdfjsLib } from './pdfWorkerSetup';
 
 /**
  * PDF to Word (.docx)
- * Extracts textual flow, headings and paragraphs from PDF and packages into DOCX
+ * Extracts structured layout, headings, formatted text runs, lists, and tables from PDF.
  */
 export async function convertPdfToDocx(pdfBuffer: ArrayBuffer): Promise<Blob> {
-  const { pages } = await extractPdfText(pdfBuffer);
+  const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(pdfBuffer.slice(0)) });
+  const pdf = await loadingTask.promise;
+  const numPages = pdf.numPages;
 
-  const sectionsChildren: Paragraph[] = [];
+  const docChildren: (Paragraph | Table)[] = [];
 
-  for (const page of pages) {
-    sectionsChildren.push(
-      new Paragraph({
-        text: `--- Page ${page.pageNumber} ---`,
-        heading: HeadingLevel.HEADING_2,
-        spacing: { before: 200, after: 120 },
-      })
-    );
+  for (let pageNum = 1; pageNum <= numPages; pageNum++) {
+    const page = await pdf.getPage(pageNum);
+    const textContent = await page.getTextContent();
+    const items = textContent.items as any[];
 
-    // Group items into lines or paragraphs
-    const lines = page.text.split('\n').filter((l) => l.trim().length > 0);
-    if (lines.length === 0 && page.text.trim().length > 0) {
-      lines.push(page.text.trim());
+    if (pageNum > 1) {
+      // Add page break between pages
+      docChildren.push(
+        new Paragraph({
+          children: [new PageBreak()],
+        })
+      );
     }
 
-    for (const line of lines) {
-      sectionsChildren.push(
+    if (!items || items.length === 0) {
+      continue;
+    }
+
+    // Group items into visual lines based on Y coordinates
+    interface TextItemInfo {
+      str: string;
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+      fontName: string;
+      fontSize: number;
+      bold: boolean;
+      italic: boolean;
+    }
+
+    const parsedItems: TextItemInfo[] = [];
+
+    for (const item of items) {
+      const str = (item.str || '').trim();
+      if (!str) continue;
+
+      const tx = item.transform || [1, 0, 0, 1, 0, 0];
+      const x = Math.round(tx[4]);
+      const y = Math.round(tx[5]);
+      // Estimate font size from transform matrix scale
+      const fontSize = Math.max(8, Math.round(Math.hypot(tx[0], tx[1]) || item.height || 11));
+      const fontName = String(item.fontName || '').toLowerCase();
+      const bold = /bold|black|heavy|semibold|medium/i.test(fontName);
+      const italic = /italic|oblique/i.test(fontName);
+
+      parsedItems.push({
+        str: item.str, // keep inner spaces
+        x,
+        y,
+        width: item.width || 0,
+        height: item.height || fontSize,
+        fontName,
+        fontSize,
+        bold,
+        italic,
+      });
+    }
+
+    if (parsedItems.length === 0) continue;
+
+    // Sort items top-to-bottom (PDF Y is bottom-up, so higher Y is higher on page), then left-to-right
+    parsedItems.sort((a, b) => {
+      if (Math.abs(b.y - a.y) > 4) {
+        return b.y - a.y; // Higher Y first
+      }
+      return a.x - b.x; // Left to right
+    });
+
+    // Group into visual lines
+    const lineBuckets: TextItemInfo[][] = [];
+    let currentBucket: TextItemInfo[] = [];
+    let currentY: number | null = null;
+
+    for (const item of parsedItems) {
+      if (currentY === null || Math.abs(item.y - currentY) <= 4) {
+        currentBucket.push(item);
+        if (currentY === null) currentY = item.y;
+      } else {
+        if (currentBucket.length > 0) {
+          lineBuckets.push(currentBucket);
+        }
+        currentBucket = [item];
+        currentY = item.y;
+      }
+    }
+    if (currentBucket.length > 0) {
+      lineBuckets.push(currentBucket);
+    }
+
+    // Process lines into paragraphs, headings, bullet lists, or tables
+    for (let lineIdx = 0; lineIdx < lineBuckets.length; lineIdx++) {
+      const line = lineBuckets[lineIdx];
+      // Sort line items left to right
+      line.sort((a, b) => a.x - b.x);
+
+      // Check if this line looks like a multi-column table row (multiple separated items with significant gap)
+      const hasLargeGaps = line.length >= 2 && line.some((it, idx) => {
+        if (idx === 0) return false;
+        const prev = line[idx - 1];
+        return it.x - (prev.x + prev.width) > 40;
+      });
+
+      if (hasLargeGaps && line.length <= 6) {
+        // Render as a clean Word table row
+        const cells = line.map((item) => {
+          return new TableCell({
+            width: { size: Math.round(100 / line.length), type: WidthType.PERCENTAGE },
+            children: [
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: item.str.trim(),
+                    bold: item.bold,
+                    italics: item.italic,
+                    size: Math.min(32, Math.max(16, item.fontSize * 2)),
+                    font: 'Calibri',
+                  }),
+                ],
+              }),
+            ],
+            borders: {
+              top: { style: BorderStyle.SINGLE, size: 1, color: 'E5E7EB' },
+              bottom: { style: BorderStyle.SINGLE, size: 1, color: 'E5E7EB' },
+              left: { style: BorderStyle.NONE },
+              right: { style: BorderStyle.NONE },
+            },
+          });
+        });
+
+        docChildren.push(
+          new Table({
+            rows: [new TableRow({ children: cells })],
+            width: { size: 100, type: WidthType.PERCENTAGE },
+          })
+        );
+        continue;
+      }
+
+      // Check for headings or bullet points
+      const combinedText = line.map((it) => it.str).join(' ').trim();
+      if (!combinedText) continue;
+
+      const maxFontSize = Math.max(...line.map((it) => it.fontSize));
+      const isBoldLine = line.filter((it) => it.bold).length >= line.length / 2;
+      const isBullet = /^[•\-\*\u2022\u25E6]\s+/.test(combinedText) || /^\d+[\.\)]\s+/.test(combinedText);
+
+      // Map font sizes to headings:
+      // Typically body text is 10-12pt. >= 20pt is Heading 1, >= 15pt is Heading 2, >= 13pt bold is Heading 3
+      let headingLevel: typeof HeadingLevel[keyof typeof HeadingLevel] | undefined = undefined;
+      if (maxFontSize >= 20 || (maxFontSize >= 17 && isBoldLine)) {
+        headingLevel = HeadingLevel.HEADING_1;
+      } else if (maxFontSize >= 15 || (maxFontSize >= 13 && isBoldLine && combinedText.length < 80)) {
+        headingLevel = HeadingLevel.HEADING_2;
+      } else if (maxFontSize >= 12 && isBoldLine && combinedText.length < 60) {
+        headingLevel = HeadingLevel.HEADING_3;
+      }
+
+      const runs: TextRun[] = [];
+      let previousEnd = -1;
+
+      for (const item of line) {
+        const text = item.str;
+        if (!text) continue;
+
+        // If there was spacing before this item
+        const prependSpace = previousEnd > 0 && item.x - previousEnd > 6 && !text.startsWith(' ');
+
+        runs.push(
+          new TextRun({
+            text: (prependSpace ? ' ' : '') + text,
+            bold: item.bold,
+            italics: item.italic,
+            size: Math.min(48, Math.max(16, item.fontSize * 2)),
+            font: 'Calibri',
+          })
+        );
+        previousEnd = item.x + item.width;
+      }
+
+      docChildren.push(
         new Paragraph({
-          children: [
-            new TextRun({
-              text: line,
-              size: 24, // 12pt
-              font: 'Calibri',
-            }),
-          ],
-          spacing: { after: 100 },
+          children: runs,
+          heading: headingLevel,
+          bullet: isBullet ? { level: 0 } : undefined,
+          spacing: {
+            before: headingLevel ? 180 : 40,
+            after: headingLevel ? 100 : 60,
+            line: 276, // 1.15 line spacing
+          },
+        })
+      );
+    }
+  }
+
+  // If no content could be parsed with layout, fallback to full text
+  if (docChildren.length === 0) {
+    const { fullText } = await extractPdfText(pdfBuffer);
+    const lines = fullText.split('\n').filter((l) => l.trim().length > 0);
+    for (const l of lines) {
+      docChildren.push(
+        new Paragraph({
+          children: [new TextRun({ text: l, size: 22, font: 'Calibri' })],
+          spacing: { after: 80 },
         })
       );
     }
@@ -48,8 +241,17 @@ export async function convertPdfToDocx(pdfBuffer: ArrayBuffer): Promise<Blob> {
   const doc = new Document({
     sections: [
       {
-        properties: {},
-        children: sectionsChildren,
+        properties: {
+          page: {
+            margin: {
+              top: 1440, // 1 inch = 1440 twips
+              bottom: 1440,
+              left: 1440,
+              right: 1440,
+            },
+          },
+        },
+        children: docChildren,
       },
     ],
   });
