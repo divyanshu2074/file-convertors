@@ -80,6 +80,53 @@ export const ScanWorkspace: React.FC = () => {
     setCapturedPages((prev) => [...prev, { id: `page-${Date.now()}`, dataUrl, buffer }]);
   };
 
+  const handleUploadPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const img = new Image();
+    const reader = new FileReader();
+    reader.onload = () => {
+      img.onload = async () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        ctx.drawImage(img, 0, 0);
+
+        if (filterMode === 'contrast' || filterMode === 'bw') {
+          const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const d = imgData.data;
+          for (let i = 0; i < d.length; i += 4) {
+            const gray = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+            if (filterMode === 'bw') {
+              const val = gray > 140 ? 255 : 0;
+              d[i] = val;
+              d[i + 1] = val;
+              d[i + 2] = val;
+            } else {
+              const contrastVal = (gray - 128) * 1.5 + 128;
+              d[i] = contrastVal;
+              d[i + 1] = contrastVal;
+              d[i + 2] = contrastVal;
+            }
+          }
+          ctx.putImageData(imgData, 0, 0);
+        }
+
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+        const blob = await new Promise<Blob>((resolve) => canvas.toBlob((b) => resolve(b!), 'image/jpeg', 0.9));
+        const buffer = await blob.arrayBuffer();
+
+        setCapturedPages((prev) => [...prev, { id: `page-${Date.now()}`, dataUrl, buffer }]);
+      };
+      img.src = reader.result as string;
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
   const handleRemovePage = (id: string) => {
     setCapturedPages((prev) => prev.filter((p) => p.id !== id));
   };
@@ -148,13 +195,20 @@ export const ScanWorkspace: React.FC = () => {
               <div className="absolute inset-8 border-2 border-dashed border-white/60 rounded-xl pointer-events-none" />
             </div>
 
-            <button
-              onClick={handleCapture}
-              className="px-6 py-3 rounded-full bg-white text-neutral-900 font-semibold text-xs flex items-center gap-2 shadow-lg hover:bg-neutral-100 transition-transform active:scale-95"
-            >
-              <Camera className="w-4 h-4 text-rose-600" />
-              Capture Document Page
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleCapture}
+                className="px-6 py-3 rounded-full bg-white text-neutral-900 font-semibold text-xs flex items-center gap-2 shadow-lg hover:bg-neutral-100 transition-transform active:scale-95 cursor-pointer"
+              >
+                <Camera className="w-4 h-4 text-rose-600" />
+                Capture Document Page
+              </button>
+
+              <label className="px-5 py-3 rounded-full bg-neutral-800 text-white font-medium text-xs flex items-center gap-2 hover:bg-neutral-700 transition-colors cursor-pointer">
+                <span>Upload Photo</span>
+                <input type="file" accept="image/*" onChange={handleUploadPhoto} className="hidden" />
+              </label>
+            </div>
           </div>
 
           {/* Captured Pages Tray */}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { RotateCw, Trash2, Undo2, ArrowRight, Download, Check } from 'lucide-react';
+import { RotateCw, Trash2, Undo2, ArrowRight, Download, Check, Copy } from 'lucide-react';
 import { renderThumbnails, organizePdf } from '../../lib/pdfEngine';
 import { downloadUint8Array } from '../../lib/downloadHelper';
 import confetti from 'canvas-confetti';
@@ -61,6 +61,22 @@ export const OrganizeWorkspace: React.FC<OrganizeWorkspaceProps> = ({
     setPages((prev) =>
       prev.map((p, i) => (i === index ? { ...p, rotation: (p.rotation + 90) % 360 } : p))
     );
+  };
+
+  const handleRotateAll = () => {
+    setPages((prev) => prev.map((p) => ({ ...p, rotation: (p.rotation + 90) % 360 })));
+  };
+
+  const handleDuplicate = (index: number) => {
+    const target = pages[index];
+    if (!target) return;
+    const duplicated: PageItem = {
+      ...target,
+      id: `page-dup-${Date.now()}-${Math.random()}`,
+    };
+    const updated = [...pages];
+    updated.splice(index + 1, 0, duplicated);
+    setPages(updated);
   };
 
   const handleToggleDelete = (index: number) => {
@@ -141,9 +157,18 @@ export const OrganizeWorkspace: React.FC<OrganizeWorkspaceProps> = ({
 
         <div className="flex items-center gap-2">
           <button
+            type="button"
+            onClick={handleRotateAll}
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium border border-neutral-200 bg-white hover:bg-neutral-100 text-neutral-700 transition-colors"
+          >
+            <RotateCw className="w-3.5 h-3.5" />
+            Rotate All 90°
+          </button>
+
+          <button
             onClick={handleSaveOrganized}
             disabled={processing || activeCount === 0}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-semibold bg-neutral-900 hover:bg-neutral-800 disabled:bg-neutral-300 text-white shadow-sm transition-all"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-semibold bg-neutral-900 hover:bg-neutral-800 disabled:bg-neutral-300 text-white shadow-sm transition-all cursor-pointer"
           >
             {done ? <Check className="w-4 h-4 text-emerald-400" /> : <Download className="w-4 h-4" />}
             {processing ? 'Processing...' : done ? 'Downloaded!' : 'Save & Download PDF'}
@@ -183,14 +208,24 @@ export const OrganizeWorkspace: React.FC<OrganizeWorkspaceProps> = ({
 
             {/* Actions for this page */}
             <div className="flex items-center justify-between w-full pt-1 border-t border-neutral-100">
-              <button
-                type="button"
-                onClick={() => handleRotate(index)}
-                title="Rotate 90° clockwise"
-                className="p-1.5 rounded-lg text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 transition-colors"
-              >
-                <RotateCw className="w-3.5 h-3.5" />
-              </button>
+              <div className="flex items-center gap-0.5">
+                <button
+                  type="button"
+                  onClick={() => handleRotate(index)}
+                  title="Rotate 90° clockwise"
+                  className="p-1.5 rounded-lg text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 transition-colors"
+                >
+                  <RotateCw className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDuplicate(index)}
+                  title="Duplicate page"
+                  className="p-1.5 rounded-lg text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 transition-colors"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                </button>
+              </div>
 
               <button
                 type="button"

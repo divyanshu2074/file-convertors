@@ -526,11 +526,32 @@ export async function extractPdfText(
   for (let i = 1; i <= count; i++) {
     const page = await pdf.getPage(i);
     const textContent = await page.getTextContent();
-    const pageText = textContent.items
-      .map((item: any) => item.str || '')
-      .join(' ')
-      .replace(/\s+/g, ' ');
 
+    let lastY: number | null = null;
+    const lines: string[] = [];
+    let currentLineTokens: string[] = [];
+
+    for (const item of textContent.items as any[]) {
+      const str = (item.str || '').trim();
+      if (!str) continue;
+      const y = item.transform ? Math.round(item.transform[5]) : null;
+
+      if (lastY !== null && y !== null && Math.abs(y - lastY) > 3) {
+        if (currentLineTokens.length > 0) {
+          lines.push(currentLineTokens.join('   '));
+        }
+        currentLineTokens = [str];
+      } else {
+        currentLineTokens.push(str);
+      }
+      lastY = y;
+    }
+
+    if (currentLineTokens.length > 0) {
+      lines.push(currentLineTokens.join('   '));
+    }
+
+    const pageText = lines.join('\n');
     pages.push({ pageNumber: i, text: pageText, items: textContent.items });
     fullText += `--- Page ${i} ---\n` + pageText + '\n\n';
   }

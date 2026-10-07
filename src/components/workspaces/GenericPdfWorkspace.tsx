@@ -40,6 +40,7 @@ export const GenericPdfWorkspace: React.FC<GenericWorkspaceProps> = ({ tool, fil
 
   // Tool specific states
   const [compressLevel, setCompressLevel] = useState<'recommended' | 'extreme' | 'low'>('recommended');
+  const [splitMode, setSplitMode] = useState<'range' | 'all'>('range');
   const [splitRanges, setSplitRanges] = useState('1-2, 3-5');
   const [rotateAngle, setRotateAngle] = useState(90);
   const [pageNumberPos, setPageNumberPos] = useState<any>('bottom-center');
@@ -72,25 +73,39 @@ export const GenericPdfWorkspace: React.FC<GenericWorkspaceProps> = ({ tool, fil
 
         case 'split-pdf': {
           if (!mainFile) return;
-          // Parse ranges e.g. "1-2, 3-5, 6"
           const groups: number[][] = [];
-          const parts = splitRanges.split(',').map((s) => s.trim());
-          for (const part of parts) {
-            if (part.includes('-')) {
-              const [start, end] = part.split('-').map((n) => parseInt(n.trim()));
-              if (!isNaN(start) && !isNaN(end)) {
-                const rangeArr = [];
-                for (let k = start; k <= end; k++) rangeArr.push(k);
-                groups.push(rangeArr);
-              }
-            } else {
-              const single = parseInt(part);
-              if (!isNaN(single)) groups.push([single]);
+
+          if (splitMode === 'all') {
+            const { PDFDocument } = await import('pdf-lib');
+            const doc = await PDFDocument.load(mainFile.arrayBuffer, { ignoreEncryption: true });
+            const pageCount = doc.getPageCount();
+            for (let p = 1; p <= pageCount; p++) {
+              groups.push([p]);
             }
+          } else {
+            // Parse ranges e.g. "1-2, 3-5, 6"
+            const parts = splitRanges.split(',').map((s) => s.trim());
+            for (const part of parts) {
+              if (part.includes('-')) {
+                const [start, end] = part.split('-').map((n) => parseInt(n.trim()));
+                if (!isNaN(start) && !isNaN(end)) {
+                  const rangeArr = [];
+                  for (let k = start; k <= end; k++) rangeArr.push(k);
+                  groups.push(rangeArr);
+                }
+              } else {
+                const single = parseInt(part);
+                if (!isNaN(single)) groups.push([single]);
+              }
+            }
+            if (groups.length === 0) groups.push([1]);
           }
 
-          if (groups.length === 0) groups.push([1]);
           const results = await splitPdf(mainFile.arrayBuffer, groups);
+          if (results.length === 0) {
+            alert('No valid pages found in the specified range.');
+            return;
+          }
 
           if (results.length === 1) {
             downloadUint8Array(results[0].data, results[0].filename);
@@ -352,18 +367,48 @@ export const GenericPdfWorkspace: React.FC<GenericWorkspaceProps> = ({ tool, fil
 
         {/* Split PDF */}
         {tool.id === 'split-pdf' && (
-          <div className="space-y-2">
-            <span className="text-xs text-neutral-700 font-medium">Page Ranges to Extract:</span>
-            <input
-              type="text"
-              value={splitRanges}
-              onChange={(e) => setSplitRanges(e.target.value)}
-              placeholder="e.g. 1-2, 3-5, 8"
-              className="w-full px-3 py-2 text-xs rounded-xl border border-neutral-200 focus:outline-none"
-            />
-            <p className="text-[11px] text-neutral-400">
-              Enter comma-separated page ranges. Multiple ranges will be bundled into a ZIP archive.
-            </p>
+          <div className="space-y-3">
+            <span className="text-xs text-neutral-700 font-medium">Split Method:</span>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <button
+                type="button"
+                onClick={() => setSplitMode('all')}
+                className={`py-2 px-3 rounded-xl border font-medium transition-all ${
+                  splitMode === 'all'
+                    ? 'border-neutral-900 bg-neutral-900 text-white shadow-xs'
+                    : 'border-neutral-200 hover:bg-neutral-50 text-neutral-700'
+                }`}
+              >
+                Extract All Pages (Individual PDFs)
+              </button>
+              <button
+                type="button"
+                onClick={() => setSplitMode('range')}
+                className={`py-2 px-3 rounded-xl border font-medium transition-all ${
+                  splitMode === 'range'
+                    ? 'border-neutral-900 bg-neutral-900 text-white shadow-xs'
+                    : 'border-neutral-200 hover:bg-neutral-50 text-neutral-700'
+                }`}
+              >
+                Custom Page Ranges
+              </button>
+            </div>
+
+            {splitMode === 'range' && (
+              <div className="space-y-1.5 pt-1">
+                <span className="text-xs text-neutral-500 font-medium">Page Ranges to Extract:</span>
+                <input
+                  type="text"
+                  value={splitRanges}
+                  onChange={(e) => setSplitRanges(e.target.value)}
+                  placeholder="e.g. 1-2, 3-5, 8"
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-neutral-200 focus:outline-none"
+                />
+                <p className="text-[11px] text-neutral-400">
+                  Enter comma-separated page ranges (e.g. 1-2, 3-5). Multiple ranges will be bundled into a ZIP archive.
+                </p>
+              </div>
+            )}
           </div>
         )}
 

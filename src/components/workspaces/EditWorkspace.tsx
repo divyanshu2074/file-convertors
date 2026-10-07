@@ -213,14 +213,14 @@ export const EditWorkspace: React.FC<EditWorkspaceProps> = ({ pdfBuffer, fileNam
       <p className="text-xs text-neutral-400">Click anywhere on the preview to place your annotation.</p>
 
       {/* Interactive PDF Page Preview */}
-      <div
-        ref={containerRef}
-        onClick={handleCanvasClick}
-        className="relative max-h-[65vh] overflow-hidden rounded-xl border border-neutral-300 shadow-sm bg-neutral-100 flex items-center justify-center cursor-crosshair select-none"
-      >
+      <div className="relative max-h-[65vh] overflow-hidden rounded-xl border border-neutral-300 shadow-sm bg-neutral-100 flex items-center justify-center select-none p-2">
         {pagePreviewUrl ? (
-          <div className="relative w-full flex justify-center">
-            <img src={pagePreviewUrl} alt="PDF Page Preview" className="max-h-[60vh] object-contain shadow-xs" />
+          <div
+            ref={containerRef}
+            onClick={handleCanvasClick}
+            className="relative inline-block cursor-crosshair shadow-md"
+          >
+            <img src={pagePreviewUrl} alt="PDF Page Preview" className="max-h-[60vh] object-contain block" />
 
             {/* Overlaid annotations */}
             {currentAnnotations.map((ann) => (

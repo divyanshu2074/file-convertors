@@ -38,10 +38,10 @@ export const CompareWorkspace: React.FC<CompareWorkspaceProps> = ({ files }) => 
         ]);
 
         if (mounted) {
-          if (resA) setDocAUrl(resA.canvas.toDataURL('image/jpeg', 0.9));
-          if (resB) setDocBUrl(resB.canvas.toDataURL('image/jpeg', 0.9));
-          if (txtA && txtA.pages[page - 1]) setTextA(txtA.pages[page - 1].text);
-          if (txtB && txtB.pages[page - 1]) setTextB(txtB.pages[page - 1].text);
+          setDocAUrl(resA ? resA.canvas.toDataURL('image/jpeg', 0.9) : '');
+          setDocBUrl(resB ? resB.canvas.toDataURL('image/jpeg', 0.9) : '');
+          setTextA(txtA && txtA.pages[page - 1] ? txtA.pages[page - 1].text : '(Page not present in Document A)');
+          setTextB(txtB && txtB.pages[page - 1] ? txtB.pages[page - 1].text : '(Page not present in Document B)');
         }
       } catch (err) {
         console.error('Error comparing documents:', err);
