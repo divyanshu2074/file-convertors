@@ -770,9 +770,14 @@ export async function convertHtmlToPdf(htmlContent: string): Promise<Uint8Array>
   const margin = 50;
 
   // Clean HTML tags for basic text rendering
-  const tempDiv = document.createElement('div');
-  tempDiv.innerHTML = htmlContent;
-  const rawText = tempDiv.innerText || tempDiv.textContent || htmlContent;
+  let rawText = '';
+  if (typeof document !== 'undefined') {
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = htmlContent;
+    rawText = tempDiv.innerText || tempDiv.textContent || htmlContent;
+  } else {
+    rawText = htmlContent.replace(/<[^>]+>/g, ' ').replace(/\s{2,}/g, ' ');
+  }
 
   const lines = rawText.split('\n');
   let page = doc.addPage([pageWidth, pageHeight]);
