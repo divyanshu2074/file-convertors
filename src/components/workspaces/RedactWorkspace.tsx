@@ -180,7 +180,7 @@ export const RedactWorkspace: React.FC<RedactWorkspaceProps> = ({ pdfBuffer, fil
 
       {/* Interactive PDF Page Preview Viewport */}
       <InteractivePreviewViewport maxHeight="64vh">
-        {() =>
+        {(zoom) =>
           pagePreviewUrl ? (
             <div
               ref={containerRef}
@@ -205,6 +205,7 @@ export const RedactWorkspace: React.FC<RedactWorkspaceProps> = ({ pdfBuffer, fil
                   label="Blackout"
                   minWidth={25}
                   minHeight={15}
+                  zoom={zoom}
                 >
                   <div className="w-full h-full bg-black rounded shadow-xs" />
                 </TransformBox>

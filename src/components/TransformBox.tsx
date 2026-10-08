@@ -22,6 +22,7 @@ interface TransformBoxProps {
   aspectRatio?: number;
   lockAspectRatio?: boolean;
   label?: string;
+  zoom?: number;
 }
 
 type HandleType = 'nw' | 'ne' | 'se' | 'sw' | 'move' | null;
@@ -37,6 +38,7 @@ export const TransformBox: React.FC<TransformBoxProps> = ({
   minHeight = 20,
   lockAspectRatio = false,
   label,
+  zoom = 1.0,
 }) => {
   const [activeHandle, setActiveHandle] = useState<HandleType>(null);
   const dragStartRef = useRef<{
@@ -44,11 +46,12 @@ export const TransformBox: React.FC<TransformBoxProps> = ({
     pointerY: number;
     rect: BoxRect;
   } | null>(null);
+  const rafIdRef = useRef<number | null>(null);
 
   const handlePointerDown = (e: React.PointerEvent, handle: HandleType) => {
     e.stopPropagation();
     e.preventDefault();
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
 
     if (onSelect) onSelect();
 
@@ -64,60 +67,76 @@ export const TransformBox: React.FC<TransformBoxProps> = ({
     if (!activeHandle || !dragStartRef.current) return;
     e.stopPropagation();
 
-    const dx = e.clientX - dragStartRef.current.pointerX;
-    const dy = e.clientY - dragStartRef.current.pointerY;
-    const initial = dragStartRef.current.rect;
+    const clientX = e.clientX;
+    const clientY = e.clientY;
 
-    if (activeHandle === 'move') {
-      const nextX = Math.max(0, initial.x + dx);
-      const nextY = Math.max(0, initial.y + dy);
+    if (rafIdRef.current) {
+      cancelAnimationFrame(rafIdRef.current);
+    }
+
+    rafIdRef.current = requestAnimationFrame(() => {
+      if (!dragStartRef.current) return;
+      // Crucial: divide pointer delta by zoom factor so movement matches the cursor 1:1 regardless of zoom level
+      const currentZoom = zoom > 0 ? zoom : 1.0;
+      const dx = (clientX - dragStartRef.current.pointerX) / currentZoom;
+      const dy = (clientY - dragStartRef.current.pointerY) / currentZoom;
+      const initial = dragStartRef.current.rect;
+
+      if (activeHandle === 'move') {
+        const nextX = Math.max(0, initial.x + dx);
+        const nextY = Math.max(0, initial.y + dy);
+        onChange({
+          ...initial,
+          x: Math.round(nextX),
+          y: Math.round(nextY),
+        });
+        return;
+      }
+
+      let newX = initial.x;
+      let newY = initial.y;
+      let newW = initial.width;
+      let newH = initial.height;
+
+      if (activeHandle === 'se') {
+        newW = Math.max(minWidth, initial.width + dx);
+        newH = lockAspectRatio ? newW * (initial.height / initial.width) : Math.max(minHeight, initial.height + dy);
+      } else if (activeHandle === 'sw') {
+        const potentialW = Math.max(minWidth, initial.width - dx);
+        newX = initial.x + (initial.width - potentialW);
+        newW = potentialW;
+        newH = lockAspectRatio ? newW * (initial.height / initial.width) : Math.max(minHeight, initial.height + dy);
+      } else if (activeHandle === 'ne') {
+        newW = Math.max(minWidth, initial.width + dx);
+        const potentialH = Math.max(minHeight, initial.height - dy);
+        newY = initial.y + (initial.height - potentialH);
+        newH = lockAspectRatio ? newW * (initial.height / initial.width) : potentialH;
+      } else if (activeHandle === 'nw') {
+        const potentialW = Math.max(minWidth, initial.width - dx);
+        const potentialH = Math.max(minHeight, initial.height - dy);
+        newX = initial.x + (initial.width - potentialW);
+        newY = initial.y + (initial.height - potentialH);
+        newW = potentialW;
+        newH = lockAspectRatio ? newW * (initial.height / initial.width) : potentialH;
+      }
+
       onChange({
-        ...initial,
-        x: nextX,
-        y: nextY,
+        x: Math.round(newX),
+        y: Math.round(newY),
+        width: Math.round(newW),
+        height: Math.round(newH),
       });
-      return;
-    }
-
-    let newX = initial.x;
-    let newY = initial.y;
-    let newW = initial.width;
-    let newH = initial.height;
-
-    if (activeHandle === 'se') {
-      newW = Math.max(minWidth, initial.width + dx);
-      newH = lockAspectRatio ? newW * (initial.height / initial.width) : Math.max(minHeight, initial.height + dy);
-    } else if (activeHandle === 'sw') {
-      const potentialW = Math.max(minWidth, initial.width - dx);
-      newX = initial.x + (initial.width - potentialW);
-      newW = potentialW;
-      newH = lockAspectRatio ? newW * (initial.height / initial.width) : Math.max(minHeight, initial.height + dy);
-    } else if (activeHandle === 'ne') {
-      newW = Math.max(minWidth, initial.width + dx);
-      const potentialH = Math.max(minHeight, initial.height - dy);
-      newY = initial.y + (initial.height - potentialH);
-      newH = lockAspectRatio ? newW * (initial.height / initial.width) : potentialH;
-    } else if (activeHandle === 'nw') {
-      const potentialW = Math.max(minWidth, initial.width - dx);
-      const potentialH = Math.max(minHeight, initial.height - dy);
-      newX = initial.x + (initial.width - potentialW);
-      newY = initial.y + (initial.height - potentialH);
-      newW = potentialW;
-      newH = lockAspectRatio ? newW * (initial.height / initial.width) : potentialH;
-    }
-
-    onChange({
-      x: Math.round(newX),
-      y: Math.round(newY),
-      width: Math.round(newW),
-      height: Math.round(newH),
     });
   };
 
   const handlePointerUp = (e: React.PointerEvent) => {
     if (activeHandle) {
+      if (rafIdRef.current) {
+        cancelAnimationFrame(rafIdRef.current);
+        rafIdRef.current = null;
+      }
       try {
-        (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+        (e.target as HTMLElement).releasePointerCapture?.(e.pointerId);
       } catch {
         // ignore
       }

@@ -303,7 +303,7 @@ export const SignWorkspace: React.FC<SignWorkspaceProps> = ({ pdfBuffer, fileNam
 
         {/* Interactive Viewport with Zoom, Fit & Fullscreen */}
         <InteractivePreviewViewport maxHeight="64vh">
-          {() =>
+          {(zoom) =>
             pagePreviewUrl ? (
               <div
                 ref={previewContainerRef}
@@ -323,6 +323,7 @@ export const SignWorkspace: React.FC<SignWorkspaceProps> = ({ pdfBuffer, fileNam
                     label="Signature"
                     minWidth={50}
                     minHeight={25}
+                    zoom={zoom}
                   >
                     <img
                       src={signatureDataUrl}

@@ -258,7 +258,7 @@ export const EditWorkspace: React.FC<EditWorkspaceProps> = ({ pdfBuffer, fileNam
 
       {/* Interactive PDF Page Preview Viewport */}
       <InteractivePreviewViewport maxHeight="64vh">
-        {() =>
+        {(zoom) =>
           pagePreviewUrl ? (
             <div
               ref={containerRef}
@@ -283,6 +283,7 @@ export const EditWorkspace: React.FC<EditWorkspaceProps> = ({ pdfBuffer, fileNam
                   label={ann.type === 'text' ? 'Text' : 'Rect'}
                   minWidth={ann.type === 'text' ? 40 : 25}
                   minHeight={ann.type === 'text' ? 20 : 20}
+                  zoom={zoom}
                 >
                   {ann.type === 'text' ? (
                     <div
