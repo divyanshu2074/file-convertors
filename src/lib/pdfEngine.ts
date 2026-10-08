@@ -245,7 +245,16 @@ export async function cropPdf(
  */
 export async function redactPdf(
   pdfBuffer: ArrayBuffer,
-  redactions: { page: number; x: number; y: number; width: number; height: number }[]
+  redactions: {
+    page: number;
+    // Fractional normalized coordinates [0..1] or PDF point coordinates
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    // Normalized 0..1 bounding box from preview
+    normalized?: { x: number; y: number; width: number; height: number };
+  }[]
 ): Promise<Uint8Array> {
   const doc = await PDFDocument.load(pdfBuffer.slice(0), { ignoreEncryption: true });
 
@@ -253,12 +262,36 @@ export async function redactPdf(
     const pageIdx = r.page - 1;
     if (pageIdx >= 0 && pageIdx < doc.getPageCount()) {
       const page = doc.getPage(pageIdx);
+      const { width: pageWidth, height: pageHeight } = page.getSize();
+
+      let boxX: number;
+      let boxY: number;
+      let boxW: number;
+      let boxH: number;
+
+      if (r.normalized) {
+        boxX = r.normalized.x * pageWidth;
+        // In PDF points, y=0 is at the bottom of the page
+        boxY = (1 - (r.normalized.y + r.normalized.height)) * pageHeight;
+        boxW = r.normalized.width * pageWidth;
+        boxH = r.normalized.height * pageHeight;
+      } else {
+        boxX = r.x;
+        boxY = r.y;
+        boxW = r.width;
+        boxH = r.height;
+      }
+
+      // Draw permanent solid opaque black box
       page.drawRectangle({
-        x: r.x,
-        y: r.y,
-        width: r.width,
-        height: r.height,
+        x: Math.max(0, boxX),
+        y: Math.max(0, boxY),
+        width: Math.min(pageWidth, boxW),
+        height: Math.min(pageHeight, boxH),
         color: rgb(0, 0, 0),
+        borderColor: rgb(0, 0, 0),
+        borderWidth: 1,
+        opacity: 1.0,
       });
     }
   }

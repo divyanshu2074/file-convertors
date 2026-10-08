@@ -86,21 +86,25 @@ export const RedactWorkspace: React.FC<RedactWorkspaceProps> = ({ pdfBuffer, fil
       const previewW = container?.clientWidth || pageDims.width;
       const previewH = container?.clientHeight || pageDims.height;
 
-      const scaleX = pageDims.width / previewW;
-      const scaleY = pageDims.height / previewH;
-
       const mappedRedactions = redactions.map((r) => {
-        const pdfX = r.x * scaleX;
-        const pdfY = (previewH - (r.y + r.height)) * scaleY;
-        const pdfW = r.width * scaleX;
-        const pdfH = r.height * scaleY;
+        // Compute fractional normalized coordinates relative to rendered preview
+        const normX = Math.max(0, Math.min(1, r.x / previewW));
+        const normY = Math.max(0, Math.min(1, r.y / previewH));
+        const normW = Math.max(0, Math.min(1, r.width / previewW));
+        const normH = Math.max(0, Math.min(1, r.height / previewH));
 
         return {
           page: r.page,
-          x: pdfX,
-          y: pdfY,
-          width: pdfW,
-          height: pdfH,
+          x: r.x,
+          y: r.y,
+          width: r.width,
+          height: r.height,
+          normalized: {
+            x: normX,
+            y: normY,
+            width: normW,
+            height: normH,
+          },
         };
       });
 

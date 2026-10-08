@@ -3,10 +3,12 @@
  * Pre-caches scripts, styles, worker files and registers Service Worker
  */
 
+export const CURRENT_CACHE_NAME = 'localpdf-offline-v2';
+
 export async function checkOfflineCached(): Promise<boolean> {
   if (typeof window === 'undefined' || !('caches' in window)) return false;
   try {
-    const hasCache = await caches.has('localpdf-offline-v1');
+    const hasCache = await caches.has(CURRENT_CACHE_NAME);
     return hasCache;
   } catch {
     return false;
@@ -26,11 +28,12 @@ export async function saveAppToOfflineCache(
     // 1. Register Service Worker if supported
     if ('serviceWorker' in navigator) {
       const swUrl = new URL('./sw.js', window.location.href).href;
-      await navigator.serviceWorker.register(swUrl, { scope: './' });
+      const reg = await navigator.serviceWorker.register(swUrl, { scope: './' });
+      await reg.update();
     }
 
     if (onProgress) onProgress('Opening offline cache storage...');
-    const cache = await caches.open('localpdf-offline-v1');
+    const cache = await caches.open(CURRENT_CACHE_NAME);
 
     // Collect all active script, link, and static asset URLs currently on the page
     const urlsToCache = new Set<string>([
@@ -79,5 +82,42 @@ export async function saveAppToOfflineCache(
   } catch (err) {
     console.error('Failed to save to offline cache:', err);
     return { success: false, message: 'Failed to cache application: ' + String(err) };
+  }
+}
+
+/**
+ * Force clear all browser caches, unregister service workers, and reload freshly from the server
+ */
+export async function clearAppCacheAndRefresh(
+  onProgress?: (msg: string) => void
+): Promise<void> {
+  try {
+    if (onProgress) onProgress('Unregistering Service Workers...');
+    if ('serviceWorker' in navigator) {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      for (const reg of registrations) {
+        if (reg.active) {
+          reg.active.postMessage('CLEAR_CACHE');
+        }
+        await reg.unregister();
+      }
+    }
+
+    if (onProgress) onProgress('Clearing browser cache storage...');
+    if ('caches' in window) {
+      const keys = await caches.keys();
+      for (const key of keys) {
+        await caches.delete(key);
+      }
+    }
+
+    if (onProgress) onProgress('Reloading latest version from server...');
+  } catch (err) {
+    console.warn('Error clearing caches:', err);
+  } finally {
+    // Add cache-busting timestamp to reload directly from server
+    const freshUrl = new URL(window.location.href);
+    freshUrl.searchParams.set('_v', Date.now().toString());
+    window.location.href = freshUrl.href;
   }
 }

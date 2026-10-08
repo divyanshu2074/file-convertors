@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Wifi, WifiOff, DownloadCloud, CheckCircle2, Loader2 } from 'lucide-react';
-import { checkOfflineCached, saveAppToOfflineCache } from '../lib/offlineManager';
+import { Wifi, WifiOff, DownloadCloud, CheckCircle2, Loader2, RefreshCw } from 'lucide-react';
+import { checkOfflineCached, saveAppToOfflineCache, clearAppCacheAndRefresh } from '../lib/offlineManager';
 import confetti from 'canvas-confetti';
 
 interface OfflineCacheButtonProps {
@@ -10,6 +10,7 @@ interface OfflineCacheButtonProps {
 export const OfflineCacheButton: React.FC<OfflineCacheButtonProps> = ({ variant = 'compact' }) => {
   const [isCached, setIsCached] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [statusText, setStatusText] = useState('');
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
@@ -48,27 +49,55 @@ export const OfflineCacheButton: React.FC<OfflineCacheButtonProps> = ({ variant 
     }
   };
 
+  const handleRefreshFromServer = async () => {
+    if (!confirm('This will purge the cached app and load the newest version from the server. Continue?')) {
+      return;
+    }
+    try {
+      setRefreshing(true);
+      await clearAppCacheAndRefresh((msg) => setStatusText(msg));
+    } catch (err) {
+      console.error(err);
+      alert('Error clearing cache: ' + String(err));
+      setRefreshing(false);
+    }
+  };
+
   if (variant === 'compact') {
     return (
-      <button
-        onClick={handleSaveToCache}
-        disabled={loading}
-        title={isCached ? 'App is cached for offline use!' : 'Save page into browser cache for offline use'}
-        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
-          isCached
-            ? 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
-            : 'bg-white text-neutral-700 border-neutral-200 hover:bg-neutral-50 shadow-2xs'
-        }`}
-      >
-        {loading ? (
-          <Loader2 className="w-3.5 h-3.5 animate-spin text-neutral-600" />
-        ) : isCached ? (
-          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-        ) : (
-          <DownloadCloud className="w-3.5 h-3.5 text-neutral-500" />
+      <div className="inline-flex items-center gap-1.5">
+        <button
+          onClick={handleSaveToCache}
+          disabled={loading || refreshing}
+          title={isCached ? 'App is cached for offline use!' : 'Save page into browser cache for offline use'}
+          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
+            isCached
+              ? 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
+              : 'bg-white text-neutral-700 border-neutral-200 hover:bg-neutral-50 shadow-2xs'
+          }`}
+        >
+          {loading ? (
+            <Loader2 className="w-3.5 h-3.5 animate-spin text-neutral-600" />
+          ) : isCached ? (
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+          ) : (
+            <DownloadCloud className="w-3.5 h-3.5 text-neutral-500" />
+          )}
+          <span>{loading ? statusText || 'Caching...' : isCached ? 'Offline Ready' : 'Save for Offline'}</span>
+        </button>
+
+        {isCached && (
+          <button
+            onClick={handleRefreshFromServer}
+            disabled={loading || refreshing}
+            title="Update/Refresh from server (purges cached bundle and loads latest code)"
+            className="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium text-neutral-600 bg-neutral-100 hover:bg-neutral-200 border border-neutral-200 transition-colors"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin text-neutral-800' : 'text-neutral-500'}`} />
+            <span className="hidden sm:inline">{refreshing ? 'Updating...' : 'Update'}</span>
+          </button>
         )}
-        <span>{loading ? statusText || 'Caching...' : isCached ? 'Offline Ready' : 'Save for Offline'}</span>
-      </button>
+      </div>
     );
   }
 
@@ -92,24 +121,37 @@ export const OfflineCacheButton: React.FC<OfflineCacheButtonProps> = ({ variant 
         </div>
       </div>
 
-      <button
-        onClick={handleSaveToCache}
-        disabled={loading}
-        className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all shrink-0 ${
-          isCached
-            ? 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
-            : 'bg-neutral-900 text-white hover:bg-neutral-800 shadow-sm'
-        }`}
-      >
-        {loading ? (
-          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-        ) : isCached ? (
-          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-        ) : (
-          <DownloadCloud className="w-3.5 h-3.5" />
+      <div className="flex items-center gap-2 shrink-0">
+        {isCached && (
+          <button
+            onClick={handleRefreshFromServer}
+            disabled={loading || refreshing}
+            className="px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 bg-neutral-100 text-neutral-700 hover:bg-neutral-200 border border-neutral-200 transition-all"
+            title="Purge cache and download latest version from server"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+            <span>{refreshing ? 'Updating...' : 'Check Server Update'}</span>
+          </button>
         )}
-        <span>{loading ? 'Caching...' : isCached ? 'Update Cache' : 'Save for Offline'}</span>
-      </button>
+        <button
+          onClick={handleSaveToCache}
+          disabled={loading || refreshing}
+          className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all shrink-0 ${
+            isCached
+              ? 'bg-neutral-900 text-white hover:bg-neutral-800'
+              : 'bg-neutral-900 text-white hover:bg-neutral-800 shadow-sm'
+          }`}
+        >
+          {loading ? (
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+          ) : isCached ? (
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+          ) : (
+            <DownloadCloud className="w-3.5 h-3.5" />
+          )}
+          <span>{loading ? 'Caching...' : isCached ? 'Re-cache All' : 'Save for Offline'}</span>
+        </button>
+      </div>
     </div>
   );
 };
