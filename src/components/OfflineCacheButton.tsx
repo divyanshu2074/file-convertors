@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Wifi, WifiOff, DownloadCloud, CheckCircle2, Loader2, RefreshCw } from 'lucide-react';
-import { checkOfflineCached, saveAppToOfflineCache, clearAppCacheAndRefresh } from '../lib/offlineManager';
+import {
+  checkOfflineCached,
+  rebuildOfflineCacheFromServer,
+  clearAppCacheAndRefresh,
+} from '../lib/offlineManager';
 import confetti from 'canvas-confetti';
 
 interface OfflineCacheButtonProps {
@@ -32,7 +36,8 @@ export const OfflineCacheButton: React.FC<OfflineCacheButtonProps> = ({ variant 
   const handleSaveToCache = async () => {
     try {
       setLoading(true);
-      const res = await saveAppToOfflineCache((msg) => setStatusText(msg));
+      // Deletes old cache, refetches fresh assets from server, and rebuilds cache
+      const res = await rebuildOfflineCacheFromServer((msg) => setStatusText(msg));
       if (res.success) {
         setIsCached(true);
         confetti({ particleCount: 50, spread: 50, origin: { y: 0.9 } });
@@ -42,7 +47,7 @@ export const OfflineCacheButton: React.FC<OfflineCacheButtonProps> = ({ variant 
       }
     } catch (err) {
       console.error(err);
-      alert('Error caching app: ' + String(err));
+      alert('Error updating offline cache: ' + String(err));
     } finally {
       setLoading(false);
       setStatusText('');

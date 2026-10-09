@@ -9,6 +9,7 @@ interface HeaderProps {
   setSelectedCategory: (category: any) => void;
   categories: readonly { id: string; label: string }[];
   onOpenChangelog?: () => void;
+  onOpenContact?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -18,6 +19,7 @@ export const Header: React.FC<HeaderProps> = ({
   setSelectedCategory,
   categories,
   onOpenChangelog,
+  onOpenContact,
 }) => {
   return (
     <header className="border-b border-neutral-200 bg-white/80 backdrop-blur-md sticky top-0 z-40">
@@ -56,10 +58,20 @@ export const Header: React.FC<HeaderProps> = ({
           <div className="flex items-center gap-2 sm:gap-3">
             <OfflineCacheButton variant="compact" />
 
+            {onOpenContact && (
+              <button
+                onClick={onOpenContact}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-neutral-700 bg-neutral-100 hover:bg-neutral-200 transition-colors border border-neutral-200 cursor-pointer"
+                title="Contact Developer & Support"
+              >
+                <span>Contact</span>
+              </button>
+            )}
+
             {onOpenChangelog && (
               <button
                 onClick={onOpenChangelog}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition-colors border border-emerald-200/60"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition-colors border border-emerald-200/60 cursor-pointer"
                 title="Open live retro CLI changelog"
               >
                 <span>CLI_LOG</span>

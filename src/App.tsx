@@ -1,18 +1,42 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Header } from './components/Header';
 import { ToolCard } from './components/ToolCard';
 import { WorkspaceModal } from './components/WorkspaceModal';
 import { RetroCliDashboard } from './components/RetroCliDashboard';
 import { OfflineCacheButton } from './components/OfflineCacheButton';
+import { ContactModal } from './components/ContactModal';
+import { AdminPanelModal } from './components/AdminPanelModal';
+import { getLastServerUpdateTime } from './lib/offlineManager';
 import { TOOLS, CATEGORIES } from './data/tools';
 import { ToolDef } from './types';
-import { ShieldCheck, Cpu, Zap, Lock, Sparkles, Terminal } from 'lucide-react';
+import { ShieldCheck, Cpu, Zap, Lock, Sparkles, Terminal, Wifi, WifiOff, Clock, User } from 'lucide-react';
 
 export function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [activeTool, setActiveTool] = useState<ToolDef | null>(null);
   const [showChangelog, setShowChangelog] = useState(false);
+  const [showContact, setShowContact] = useState(false);
+  const [showAdmin, setShowAdmin] = useState(false);
+
+  // Online / Offline & Server update status
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [lastServerUpdate, setLastServerUpdate] = useState('');
+
+  useEffect(() => {
+    setLastServerUpdate(getLastServerUpdateTime());
+
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   // Filter tools based on category and search query
   const filteredTools = useMemo(() => {
@@ -38,6 +62,7 @@ export function App() {
         setSelectedCategory={setSelectedCategory}
         categories={CATEGORIES}
         onOpenChangelog={() => setShowChangelog(true)}
+        onOpenContact={() => setShowContact(true)}
       />
 
       {/* Main Content */}
@@ -115,23 +140,94 @@ export function App() {
         </div>
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-neutral-200 bg-white py-8 text-center text-xs text-neutral-500 mt-16">
-        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <span className="font-semibold text-neutral-800">LocalPDF</span>
-            <span>•</span>
-            <span>All document operations run 100% locally in your web browser.</span>
+      {/* Enhanced Footer with Status and Developer Information */}
+      <footer className="border-t border-neutral-200 bg-white py-8 text-xs text-neutral-500 mt-16">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-5">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="font-semibold text-neutral-800">LocalPDF</span>
+              <span>•</span>
+              <span>All document operations run 100% locally in your web browser.</span>
+            </div>
+
+            {/* Live Status Indicators */}
+            <div className="flex flex-wrap items-center gap-3">
+              {/* Online / Offline Cache Source Badge */}
+              <div
+                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border ${
+                  isOnline
+                    ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                    : 'bg-amber-50 text-amber-800 border-amber-200'
+                }`}
+                title={
+                  isOnline
+                    ? 'Page is connected to network (loaded directly or verified against server)'
+                    : 'Page is operating completely offline from browser local cache'
+                }
+              >
+                {isOnline ? (
+                  <>
+                    <Wifi className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Status: Online (Connected to Server)</span>
+                  </>
+                ) : (
+                  <>
+                    <WifiOff className="w-3.5 h-3.5 text-amber-600" />
+                    <span>Status: Offline (Loaded from Cache)</span>
+                  </>
+                )}
+              </div>
+
+              {/* Last Server Update Timestamp */}
+              {lastServerUpdate && (
+                <div
+                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs bg-neutral-100 text-neutral-700 border border-neutral-200"
+                  title="Date and time when the application assets were last updated from the server"
+                >
+                  <Clock className="w-3.5 h-3.5 text-neutral-500" />
+                  <span>Last Server Update: {lastServerUpdate}</span>
+                </div>
+              )}
+            </div>
           </div>
-          <div className="flex items-center gap-4">
-            {/* Live Changelog CLI link */}
-            <button
-              onClick={() => setShowChangelog(true)}
-              className="inline-flex items-center gap-1.5 text-neutral-700 hover:text-emerald-700 font-medium transition-colors cursor-pointer"
-            >
-              <Terminal className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Live Changelog (CLI Stream)</span>
-            </button>
+
+          <div className="pt-4 border-t border-neutral-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] text-neutral-400">
+            <div className="flex items-center gap-2">
+              <span>Developer: <strong>Divyanshu Gupta</strong></span>
+              <span>•</span>
+              <button
+                onClick={() => setShowContact(true)}
+                className="text-neutral-600 hover:text-neutral-900 underline cursor-pointer"
+              >
+                Contact & Raise Queries
+              </button>
+              <span>•</span>
+              <a
+                href="https://www.linkedin.com/in/divyanshu-gupta-dev"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:underline"
+              >
+                LinkedIn
+              </a>
+              <span>•</span>
+              <button
+                onClick={() => setShowAdmin(true)}
+                className="text-neutral-600 hover:text-indigo-600 cursor-pointer"
+              >
+                Admin Desk
+              </button>
+            </div>
+
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => setShowChangelog(true)}
+                className="inline-flex items-center gap-1.5 text-neutral-600 hover:text-emerald-700 font-medium transition-colors cursor-pointer"
+              >
+                <Terminal className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Live Changelog (CLI Stream)</span>
+              </button>
+            </div>
           </div>
         </div>
       </footer>
@@ -141,8 +237,23 @@ export function App() {
 
       {/* Retro CLI Live Changelog Dashboard Modal */}
       {showChangelog && <RetroCliDashboard onClose={() => setShowChangelog(false)} />}
+
+      {/* Contact Developer & Inquiries Modal */}
+      {showContact && (
+        <ContactModal
+          onClose={() => setShowContact(false)}
+          onOpenAdmin={() => {
+            setShowContact(false);
+            setShowAdmin(true);
+          }}
+        />
+      )}
+
+      {/* Admin Resolution Panel Modal */}
+      {showAdmin && <AdminPanelModal onClose={() => setShowAdmin(false)} />}
     </div>
   );
 }
 
 export default App;
+
