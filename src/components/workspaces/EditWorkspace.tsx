@@ -91,8 +91,10 @@ export const EditWorkspace: React.FC<EditWorkspaceProps> = ({ pdfBuffer, fileNam
     if ((e.target as HTMLElement).closest('.group.select-none')) return;
 
     const rect = containerRef.current.getBoundingClientRect();
-    const startX = Math.round(e.clientX - rect.left);
-    const startY = Math.round(e.clientY - rect.top);
+    const scaleX = rect.width / (containerRef.current.clientWidth || 1);
+    const scaleY = rect.height / (containerRef.current.clientHeight || 1);
+    const startX = Math.round((e.clientX - rect.left) / scaleX);
+    const startY = Math.round((e.clientY - rect.top) / scaleY);
 
     (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
 
@@ -113,8 +115,10 @@ export const EditWorkspace: React.FC<EditWorkspaceProps> = ({ pdfBuffer, fileNam
     if (!isDraggingNew || !containerRef.current) return;
 
     const rect = containerRef.current.getBoundingClientRect();
-    const currX = Math.round(e.clientX - rect.left);
-    const currY = Math.round(e.clientY - rect.top);
+    const scaleX = rect.width / (containerRef.current.clientWidth || 1);
+    const scaleY = rect.height / (containerRef.current.clientHeight || 1);
+    const currX = Math.round((e.clientX - rect.left) / scaleX);
+    const currY = Math.round((e.clientY - rect.top) / scaleY);
 
     if (activeTool === 'pen' || activeTool === 'highlighter') {
       const cW = containerRef.current.clientWidth;

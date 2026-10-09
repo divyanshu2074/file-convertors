@@ -1,0 +1,2 @@
+Ticket ID,Timestamp,Name,Email,Category,Subject,Message,Status
+TCK-DEMO-01,2026-10-08T16:00:00.000Z,System Test User,user@example.com,query,Welcome to LocalPDF Feedback Desk,"This is a sample ticket verifying the repository inquiry tracking system.",resolved

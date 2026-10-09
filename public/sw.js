@@ -1,4 +1,4 @@
-const CACHE_NAME = 'localpdf-offline-v4';
+const CACHE_NAME = 'localpdf-offline-v5';
 
 const STATIC_ASSETS = [
   './',

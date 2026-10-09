@@ -78,6 +78,47 @@ export function deleteTicket(id: string): FeedbackTicket[] {
   return updated;
 }
 
+function escapeCsvField(val: string): string {
+  if (!val) return '""';
+  if (val.includes(',') || val.includes('"') || val.includes('\n') || val.includes('\r')) {
+    return `"${val.replace(/"/g, '""')}"`;
+  }
+  return val;
+}
+
+export function ticketToCsvRow(t: FeedbackTicket): string {
+  return [
+    escapeCsvField(t.id),
+    escapeCsvField(t.timestamp),
+    escapeCsvField(t.name),
+    escapeCsvField(t.email),
+    escapeCsvField(t.category),
+    escapeCsvField(t.subject),
+    escapeCsvField(t.message),
+    escapeCsvField(t.status),
+  ].join(',');
+}
+
+export function ticketsToCsv(tickets: FeedbackTicket[]): string {
+  const header = 'Ticket ID,Timestamp,Name,Email,Category,Subject,Message,Status';
+  const rows = tickets.map(ticketToCsvRow);
+  return [header, ...rows].join('\n');
+}
+
+export function downloadSupportTicketsCsv(tickets?: FeedbackTicket[], filename = 'support_tickets.csv') {
+  const data = tickets || getTickets();
+  const csvContent = ticketsToCsv(data);
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 function getDefaultTickets(): FeedbackTicket[] {
   return [
     {
@@ -86,7 +127,7 @@ function getDefaultTickets(): FeedbackTicket[] {
       email: 'user@example.com',
       category: 'query',
       subject: 'Welcome to LocalPDF Feedback Desk',
-      message: 'This is a sample ticket verifying the admin inquiry tracking and resolution system.',
+      message: 'This is a sample ticket verifying the repository inquiry tracking system.',
       timestamp: new Date(Date.now() - 3600000 * 24).toISOString(),
       status: 'resolved',
       resolvedAt: new Date(Date.now() - 3600000 * 20).toISOString(),

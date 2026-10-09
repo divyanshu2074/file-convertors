@@ -125,8 +125,10 @@ export const RedactWorkspace: React.FC<RedactWorkspaceProps> = ({ pdfBuffer, fil
     }
 
     const rect = containerRef.current.getBoundingClientRect();
-    const startX = Math.round(e.clientX - rect.left);
-    const startY = Math.round(e.clientY - rect.top);
+    const scaleX = rect.width / (containerRef.current.clientWidth || 1);
+    const scaleY = rect.height / (containerRef.current.clientHeight || 1);
+    const startX = Math.round((e.clientX - rect.left) / scaleX);
+    const startY = Math.round((e.clientY - rect.top) / scaleY);
 
     setIsDrawingRect(true);
     setDragStart({ x: startX, y: startY });
@@ -137,8 +139,10 @@ export const RedactWorkspace: React.FC<RedactWorkspaceProps> = ({ pdfBuffer, fil
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!isDrawingRect || !dragStart || !containerRef.current) return;
     const rect = containerRef.current.getBoundingClientRect();
-    const currX = Math.round(e.clientX - rect.left);
-    const currY = Math.round(e.clientY - rect.top);
+    const scaleX = rect.width / (containerRef.current.clientWidth || 1);
+    const scaleY = rect.height / (containerRef.current.clientHeight || 1);
+    const currX = Math.round((e.clientX - rect.left) / scaleX);
+    const currY = Math.round((e.clientY - rect.top) / scaleY);
 
     const x = Math.min(dragStart.x, currX);
     const y = Math.min(dragStart.y, currY);
