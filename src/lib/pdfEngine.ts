@@ -1,5 +1,7 @@
 import { PDFDocument, rgb, degrees, StandardFonts } from 'pdf-lib';
 import { pdfjsLib } from './pdfWorkerSetup';
+import { encryptPDF, EncryptPDFOptions, AlreadyEncryptedError } from '@pdfsmaller/pdf-encrypt';
+import { decryptPDF, isEncrypted } from '@pdfsmaller/pdf-decrypt';
 
 /**
  * Merge multiple PDF buffers in the specified order
@@ -658,21 +660,66 @@ export async function repairPdf(pdfBuffer: ArrayBuffer): Promise<Uint8Array> {
 }
 
 /**
- * Protect PDF with password
+ * Check if PDF is password-protected / encrypted
  */
-export async function protectPdf(pdfBuffer: ArrayBuffer, _password: string): Promise<Uint8Array> {
-  const doc = await PDFDocument.load(pdfBuffer.slice(0), { ignoreEncryption: true });
-  // Note: pdf-lib encrypts on save when configured or we mark secure metadata
-  doc.setSubject(`[Protected Document: ${new Date().toISOString()}]`);
-  return await doc.save();
+export async function isPdfEncrypted(pdfBuffer: ArrayBuffer): Promise<boolean> {
+  try {
+    const bytes = new Uint8Array(pdfBuffer);
+    const result = await isEncrypted(bytes);
+    return !!result.encrypted;
+  } catch {
+    return false;
+  }
 }
 
 /**
- * Unlock PDF
+ * Protect PDF with password using AES-256
  */
-export async function unlockPdf(pdfBuffer: ArrayBuffer, _password?: string): Promise<Uint8Array> {
-  const doc = await PDFDocument.load(pdfBuffer.slice(0), { ignoreEncryption: true });
-  return await doc.save();
+export async function protectPdf(
+  pdfBuffer: ArrayBuffer,
+  password: string,
+  options?: EncryptPDFOptions
+): Promise<Uint8Array> {
+  const bytes = new Uint8Array(pdfBuffer);
+
+  const status = await isEncrypted(bytes);
+  if (status.encrypted) {
+    throw new AlreadyEncryptedError();
+  }
+
+  // Normalize structure through pdf-lib to ensure valid syntax before encryption
+  let inputBytes: Uint8Array<any> = bytes;
+  try {
+    const doc = await PDFDocument.load(pdfBuffer.slice(0), { ignoreEncryption: true });
+    inputBytes = await doc.save();
+  } catch {
+    inputBytes = bytes;
+  }
+
+  const encrypted = await encryptPDF(inputBytes, password, {
+    algorithm: options?.algorithm || 'AES-256',
+    ownerPassword: options?.ownerPassword || password,
+    allowPrinting: options?.allowPrinting ?? true,
+    allowCopying: options?.allowCopying ?? true,
+    allowModifying: options?.allowModifying ?? false,
+    ...options,
+  });
+  return new Uint8Array(encrypted.buffer, encrypted.byteOffset, encrypted.byteLength);
+}
+
+/**
+ * Unlock password-protected PDF
+ */
+export async function unlockPdf(pdfBuffer: ArrayBuffer, password?: string): Promise<Uint8Array> {
+  const bytes = new Uint8Array(pdfBuffer);
+  const status = await isEncrypted(bytes);
+  if (!status.encrypted) {
+    // If not encrypted, return clean re-save
+    const doc = await PDFDocument.load(pdfBuffer.slice(0), { ignoreEncryption: true });
+    return await doc.save();
+  }
+  const decrypted = await decryptPDF(bytes, password || '');
+  return new Uint8Array(decrypted.buffer, decrypted.byteOffset, decrypted.byteLength);
 }
 
 /**

@@ -24,7 +24,7 @@ import {
   convertHtmlToPdf,
 } from '../../lib/officeEngine';
 import { downloadUint8Array, downloadBlob, downloadZip } from '../../lib/downloadHelper';
-import { Download, Check, ArrowDown, ArrowUp, Sparkles, FileType } from 'lucide-react';
+import { Download, Check, ArrowDown, ArrowUp, Sparkles, FileType, Eye, EyeOff, Lock, Unlock, ShieldCheck, CheckCircle2, AlertCircle } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 interface GenericWorkspaceProps {
@@ -48,6 +48,10 @@ export const GenericPdfWorkspace: React.FC<GenericWorkspaceProps> = ({ tool, fil
   const [watermarkText, setWatermarkText] = useState('CONFIDENTIAL');
   const [watermarkOpacity, setWatermarkOpacity] = useState(0.25);
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [allowPrinting, setAllowPrinting] = useState(true);
+  const [allowCopying, setAllowCopying] = useState(true);
   const [htmlInput, setHtmlInput] = useState(
     '<h1>Invoice Report</h1>\n<p>Generated automatically via 100% Client-Side PDF Suite.</p>\n<p>No server uploads required.</p>'
   );
@@ -160,13 +164,27 @@ export const GenericPdfWorkspace: React.FC<GenericWorkspaceProps> = ({ tool, fil
             alert('Please enter a password to protect your PDF.');
             return;
           }
-          const protectedData = await protectPdf(mainFile.arrayBuffer, password);
+          if (confirmPassword.trim() && password !== confirmPassword) {
+            alert('Passwords do not match. Please verify your password to ensure you do not get locked out.');
+            return;
+          }
+          setStatusMessage('Applying military-grade 256-bit AES encryption...');
+          const protectedData = await protectPdf(mainFile.arrayBuffer, password, {
+            algorithm: 'AES-256',
+            allowPrinting,
+            allowCopying,
+          });
           downloadUint8Array(protectedData, mainFile.name.replace(/\.pdf$/i, '_protected.pdf'));
           break;
         }
 
         case 'unlock-pdf': {
           if (!mainFile) return;
+          if (!password.trim()) {
+            alert('Please enter the document password to unlock this PDF.');
+            return;
+          }
+          setStatusMessage('Decrypting PDF and removing password protection...');
           const unlocked = await unlockPdf(mainFile.arrayBuffer, password);
           downloadUint8Array(unlocked, mainFile.name.replace(/\.pdf$/i, '_unlocked.pdf'));
           break;
@@ -275,9 +293,15 @@ export const GenericPdfWorkspace: React.FC<GenericWorkspaceProps> = ({ tool, fil
 
       confetti({ particleCount: 70, spread: 60, origin: { y: 0.8 } });
       setDone(true);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert('Operation failed: ' + String(err));
+      if (err?.code === 'ALREADY_ENCRYPTED' || err?.name === 'AlreadyEncryptedError') {
+        alert('This PDF is already password-protected. To change or remove protection, use the Unlock PDF tool first.');
+      } else if (err?.message?.includes('Incorrect password') || err?.message?.includes('password does not match')) {
+        alert('Incorrect password: The provided password does not match this protected PDF.');
+      } else {
+        alert('Operation failed: ' + (err?.message || String(err)));
+      }
     } finally {
       setProcessing(false);
     }
@@ -505,17 +529,141 @@ export const GenericPdfWorkspace: React.FC<GenericWorkspaceProps> = ({ tool, fil
           </div>
         )}
 
-        {/* Protect / Unlock Password */}
-        {(tool.id === 'protect-pdf' || tool.id === 'unlock-pdf') && (
-          <div className="space-y-1">
-            <span className="text-xs text-neutral-700 font-medium">Password:</span>
-            <input
-              type="password"
-              placeholder={tool.id === 'protect-pdf' ? 'Enter password to protect...' : 'Enter password if locked...'}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-3 py-2 text-xs rounded-xl border border-neutral-200"
-            />
+        {/* Protect PDF Settings */}
+        {tool.id === 'protect-pdf' && (
+          <div className="space-y-4 pt-1">
+            <div className="p-3 bg-rose-50/70 border border-rose-200/80 rounded-xl text-xs text-rose-900 space-y-1">
+              <div className="flex items-center gap-1.5 font-semibold text-rose-800">
+                <Lock className="w-3.5 h-3.5 text-rose-600" />
+                Industry-Standard 256-bit AES Encryption
+              </div>
+              <p className="text-[11px] text-rose-700 leading-relaxed">
+                Opening this protected document in Adobe Acrobat, Chrome, Apple Preview, or Edge will strictly require this password.
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <div className="text-xs text-neutral-700 font-medium flex items-center justify-between">
+                  <span>Enter Password:</span>
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="text-[11px] text-neutral-500 hover:text-neutral-900 inline-flex items-center gap-1 cursor-pointer"
+                  >
+                    {showPassword ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                    <span>{showPassword ? 'Hide' : 'Show'}</span>
+                  </button>
+                </div>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="Enter strong password..."
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-neutral-300 focus:border-neutral-900 focus:outline-none bg-white pr-9"
+                  />
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400">
+                    <Lock className="w-3.5 h-3.5" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="text-xs text-neutral-700 font-medium flex items-center justify-between">
+                  <span>Confirm Password:</span>
+                  {password && confirmPassword && (
+                    <span className={`text-[10px] font-medium flex items-center gap-1 ${
+                      password === confirmPassword ? 'text-emerald-600' : 'text-amber-600'
+                    }`}>
+                      {password === confirmPassword ? (
+                        <>
+                          <CheckCircle2 className="w-3 h-3" /> Passwords match
+                        </>
+                      ) : (
+                        <>
+                          <AlertCircle className="w-3 h-3" /> Passwords do not match
+                        </>
+                      )}
+                    </span>
+                  )}
+                </div>
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="Re-enter password to confirm..."
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className={`w-full px-3 py-2 text-xs rounded-xl border focus:outline-none bg-white ${
+                    confirmPassword && password !== confirmPassword
+                      ? 'border-amber-400 focus:border-amber-600'
+                      : 'border-neutral-300 focus:border-neutral-900'
+                  }`}
+                />
+              </div>
+            </div>
+
+            {/* Document Permissions */}
+            <div className="pt-2 border-t border-neutral-100 space-y-2">
+              <span className="text-[11px] font-semibold text-neutral-500 uppercase tracking-wider">
+                Document Permissions
+              </span>
+              <div className="space-y-2 text-xs">
+                <label className="flex items-center gap-2 cursor-pointer text-neutral-700">
+                  <input
+                    type="checkbox"
+                    checked={allowPrinting}
+                    onChange={(e) => setAllowPrinting(e.target.checked)}
+                    className="rounded text-neutral-900 focus:ring-neutral-900"
+                  />
+                  <span>Allow recipients to print document</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer text-neutral-700">
+                  <input
+                    type="checkbox"
+                    checked={allowCopying}
+                    onChange={(e) => setAllowCopying(e.target.checked)}
+                    className="rounded text-neutral-900 focus:ring-neutral-900"
+                  />
+                  <span>Allow copying text and graphics</span>
+                </label>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Unlock PDF Settings */}
+        {tool.id === 'unlock-pdf' && (
+          <div className="space-y-3 pt-1">
+            <div className="p-3 bg-teal-50/70 border border-teal-200/80 rounded-xl text-xs text-teal-900 space-y-1">
+              <div className="flex items-center gap-1.5 font-semibold text-teal-800">
+                <Unlock className="w-3.5 h-3.5 text-teal-600" />
+                Remove Password Protection
+              </div>
+              <p className="text-[11px] text-teal-700 leading-relaxed">
+                Provide the password once to permanently strip encryption and save a freely accessible PDF.
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              <div className="text-xs text-neutral-700 font-medium flex items-center justify-between">
+                <span>Current PDF Password:</span>
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="text-[11px] text-neutral-500 hover:text-neutral-900 inline-flex items-center gap-1 cursor-pointer"
+                >
+                  {showPassword ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                  <span>{showPassword ? 'Hide' : 'Show'}</span>
+                </button>
+              </div>
+              <input
+                type={showPassword ? 'text' : 'password'}
+                placeholder="Enter current password..."
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full px-3 py-2 text-xs rounded-xl border border-neutral-300 focus:border-neutral-900 focus:outline-none bg-white"
+              />
+            </div>
           </div>
         )}
 
@@ -550,7 +698,15 @@ export const GenericPdfWorkspace: React.FC<GenericWorkspaceProps> = ({ tool, fil
         className="w-full py-3.5 rounded-2xl text-xs font-semibold bg-neutral-900 hover:bg-neutral-800 disabled:bg-neutral-200 text-white shadow-sm flex items-center justify-center gap-2 transition-all cursor-pointer"
       >
         {done ? <Check className="w-4 h-4 text-emerald-400" /> : <Download className="w-4 h-4" />}
-        {processing ? (statusMessage || 'Processing...') : done ? 'Completed & Downloaded!' : `Convert & Download with ${tool.title}`}
+        {processing
+          ? (statusMessage || 'Processing...')
+          : done
+          ? 'Completed & Downloaded!'
+          : tool.id === 'protect-pdf'
+          ? 'Encrypt & Protect PDF (AES-256)'
+          : tool.id === 'unlock-pdf'
+          ? 'Decrypt & Unlock PDF'
+          : `Convert & Download with ${tool.title}`}
       </button>
     </div>
   );

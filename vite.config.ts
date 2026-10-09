@@ -19,7 +19,7 @@ export default defineConfig({
       output: {
         manualChunks(id) {
           if (id.includes('node_modules')) {
-            if (id.includes('pdf-lib') || id.includes('pdfjs-dist')) {
+            if (id.includes('pdf-lib') || id.includes('pdfjs-dist') || id.includes('@pdfsmaller')) {
               return 'vendor-pdf';
             }
             if (id.includes('docx') || id.includes('mammoth') || id.includes('xlsx') || id.includes('pptxgenjs')) {
