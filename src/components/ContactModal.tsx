@@ -18,10 +18,9 @@ import confetti from 'canvas-confetti';
 
 interface ContactModalProps {
   onClose: () => void;
-  onOpenAdmin?: () => void;
 }
 
-export const ContactModal: React.FC<ContactModalProps> = ({ onClose, onOpenAdmin }) => {
+export const ContactModal: React.FC<ContactModalProps> = ({ onClose }) => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [category, setCategory] = useState<'concern' | 'query' | 'bug' | 'feature' | 'other'>('query');
@@ -124,17 +123,6 @@ export const ContactModal: React.FC<ContactModalProps> = ({ onClose, onOpenAdmin
                 <span>LinkedIn Profile</span>
                 <ExternalLink className="w-3 h-3 ml-0.5 opacity-80" />
               </a>
-
-              {onOpenAdmin && (
-                <button
-                  type="button"
-                  onClick={onOpenAdmin}
-                  className="px-3 py-2 rounded-xl text-xs font-medium bg-neutral-800 hover:bg-neutral-700 text-neutral-300 border border-neutral-700 transition-colors"
-                  title="Developer Admin Desk"
-                >
-                  Admin Desk
-                </button>
-              )}
             </div>
           </div>
 

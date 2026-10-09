@@ -12,13 +12,14 @@ import {
   Trash2,
 } from 'lucide-react';
 import { renderPdfPage } from '../../lib/pdfEngine';
+import { pdfjsLib } from '../../lib/pdfWorkerSetup';
 import { downloadUint8Array } from '../../lib/downloadHelper';
 import { InteractivePreviewViewport } from '../InteractivePreviewViewport';
 import { TransformBox, BoxRect } from '../TransformBox';
 import {
   extractPageTextTokens,
   mergeTextTokensIntoBoxes,
-  applyShapesToPdf,
+  sanitizeAndRedactPdf,
   CanvasShape,
   TextToken,
   CoordinateTransformer,
@@ -55,6 +56,25 @@ export const RedactWorkspace: React.FC<RedactWorkspaceProps> = ({ pdfBuffer, fil
   const [currentDragRect, setCurrentDragRect] = useState<BoxRect | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Load Total Document Pages
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(pdfBuffer.slice(0)) });
+        const pdf = await loadingTask.promise;
+        if (mounted) {
+          setTotalPages(pdf.numPages);
+        }
+      } catch (err) {
+        console.warn('Could not determine total pages:', err);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [pdfBuffer]);
 
   // Render Page Preview
   useEffect(() => {
@@ -208,7 +228,7 @@ export const RedactWorkspace: React.FC<RedactWorkspaceProps> = ({ pdfBuffer, fil
   const handleApplyRedactions = async () => {
     try {
       setProcessing(true);
-      const redactedPdf = await applyShapesToPdf(pdfBuffer, redactions);
+      const redactedPdf = await sanitizeAndRedactPdf(pdfBuffer, redactions);
       downloadUint8Array(redactedPdf, fileName.replace(/\.pdf$/i, '_redacted.pdf'));
       confetti({ particleCount: 70, spread: 60, origin: { y: 0.8 } });
       setDone(true);
@@ -278,10 +298,13 @@ export const RedactWorkspace: React.FC<RedactWorkspaceProps> = ({ pdfBuffer, fil
             >
               <ChevronLeft className="w-3.5 h-3.5" />
             </button>
-            <span>Page {currentPage}</span>
+            <span>
+              Page {currentPage} of {totalPages}
+            </span>
             <button
-              onClick={() => setCurrentPage((p) => p + 1)}
-              className="p-1 rounded-lg bg-neutral-800 hover:bg-neutral-700 cursor-pointer"
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage >= totalPages}
+              className="p-1 rounded-lg bg-neutral-800 disabled:opacity-40 hover:bg-neutral-700 cursor-pointer"
             >
               <ChevronRight className="w-3.5 h-3.5" />
             </button>

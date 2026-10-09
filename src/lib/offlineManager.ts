@@ -3,7 +3,7 @@
  * Deletes old caches, forces re-fetch from server, and records update metadata
  */
 
-export const CURRENT_CACHE_NAME = 'localpdf-offline-v3';
+export const CURRENT_CACHE_NAME = 'localpdf-offline-v4';
 export const LAST_SERVER_UPDATE_KEY = 'localpdf_last_server_update';
 
 export function getLastServerUpdateTime(): string {

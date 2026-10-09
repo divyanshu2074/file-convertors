@@ -5,7 +5,6 @@ import { WorkspaceModal } from './components/WorkspaceModal';
 import { RetroCliDashboard } from './components/RetroCliDashboard';
 import { OfflineCacheButton } from './components/OfflineCacheButton';
 import { ContactModal } from './components/ContactModal';
-import { AdminPanelModal } from './components/AdminPanelModal';
 import { getLastServerUpdateTime } from './lib/offlineManager';
 import { TOOLS, CATEGORIES } from './data/tools';
 import { ToolDef } from './types';
@@ -17,7 +16,6 @@ export function App() {
   const [activeTool, setActiveTool] = useState<ToolDef | null>(null);
   const [showChangelog, setShowChangelog] = useState(false);
   const [showContact, setShowContact] = useState(false);
-  const [showAdmin, setShowAdmin] = useState(false);
 
   // Online / Offline & Server update status
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -210,13 +208,6 @@ export function App() {
               >
                 LinkedIn
               </a>
-              <span>•</span>
-              <button
-                onClick={() => setShowAdmin(true)}
-                className="text-neutral-600 hover:text-indigo-600 cursor-pointer"
-              >
-                Admin Desk
-              </button>
             </div>
 
             <div className="flex items-center gap-4">
@@ -239,18 +230,7 @@ export function App() {
       {showChangelog && <RetroCliDashboard onClose={() => setShowChangelog(false)} />}
 
       {/* Contact Developer & Inquiries Modal */}
-      {showContact && (
-        <ContactModal
-          onClose={() => setShowContact(false)}
-          onOpenAdmin={() => {
-            setShowContact(false);
-            setShowAdmin(true);
-          }}
-        />
-      )}
-
-      {/* Admin Resolution Panel Modal */}
-      {showAdmin && <AdminPanelModal onClose={() => setShowAdmin(false)} />}
+      {showContact && <ContactModal onClose={() => setShowContact(false)} />}
     </div>
   );
 }
