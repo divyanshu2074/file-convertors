@@ -1,4 +1,4 @@
-const CACHE_NAME = 'localpdf-offline-v2';
+const CACHE_NAME = 'localpdf-offline-v3';
 
 const STATIC_ASSETS = [
   './',
@@ -8,13 +8,13 @@ const STATIC_ASSETS = [
 ];
 
 self.addEventListener('install', (event) => {
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      console.log('[Service Worker] Pre-caching offline assets');
+      console.log('[Service Worker] Pre-caching offline assets', CACHE_NAME);
       return cache.addAll(STATIC_ASSETS);
     })
   );
-  self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
