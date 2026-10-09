@@ -10,7 +10,7 @@ import { FeedbackTicket } from './feedbackManager';
 export const GOOGLE_SHEET_WEBHOOK_URL =
   (typeof window !== 'undefined' && (window as any).__LOCALPDF_SHEET_WEBHOOK_URL__) ||
   import.meta.env.VITE_GOOGLE_SHEET_WEBHOOK_URL ||
-  '';
+  'https://script.google.com/macros/s/AKfycbz2PEQmlF3h6yC6VlvLP-PyyuE_wAzhVB-H6yBNo1T572aG-euAEq3DHqj_uwAP_Gwv/exec';
 
 export async function sendTicketToGoogleSheet(
   ticket: FeedbackTicket,
