@@ -10,6 +10,7 @@ import {
   MessageSquare,
 } from 'lucide-react';
 import { saveTicket, FeedbackTicket } from '../lib/feedbackManager';
+import { sendTicketToGoogleSheet } from '../lib/sheetWebhook';
 import confetti from 'canvas-confetti';
 
 interface ContactModalProps {
@@ -45,6 +46,11 @@ export const ContactModal: React.FC<ContactModalProps> = ({ onClose }) => {
         subject: subject.trim(),
         message: message.trim(),
       });
+
+      // Dispatch to Google Sheet Webhook (asynchronously)
+      sendTicketToGoogleSheet(ticket).catch((err) =>
+        console.warn('Google Sheet webhook relay failed:', err)
+      );
 
       confetti({ particleCount: 65, spread: 60, origin: { y: 0.8 } });
       setSubmittedTicket(ticket);
