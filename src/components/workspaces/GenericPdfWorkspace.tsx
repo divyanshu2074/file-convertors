@@ -156,7 +156,11 @@ export const GenericPdfWorkspace: React.FC<GenericWorkspaceProps> = ({ tool, fil
 
         case 'protect-pdf': {
           if (!mainFile) return;
-          const protectedData = await protectPdf(mainFile.arrayBuffer, password || 'password');
+          if (!password.trim()) {
+            alert('Please enter a password to protect your PDF.');
+            return;
+          }
+          const protectedData = await protectPdf(mainFile.arrayBuffer, password);
           downloadUint8Array(protectedData, mainFile.name.replace(/\.pdf$/i, '_protected.pdf'));
           break;
         }

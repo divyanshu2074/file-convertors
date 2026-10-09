@@ -8,17 +8,8 @@ import {
   User,
   ExternalLink,
   MessageSquare,
-  Download,
-  Copy,
-  Check,
-  FileSpreadsheet,
 } from 'lucide-react';
-import {
-  saveTicket,
-  downloadSupportTicketsCsv,
-  ticketToCsvRow,
-  FeedbackTicket,
-} from '../lib/feedbackManager';
+import { saveTicket, FeedbackTicket } from '../lib/feedbackManager';
 import confetti from 'canvas-confetti';
 
 interface ContactModalProps {
@@ -43,7 +34,6 @@ export const ContactModal: React.FC<ContactModalProps> = ({ onClose }) => {
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submittedTicket, setSubmittedTicket] = useState<FeedbackTicket | null>(null);
-  const [copied, setCopied] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -57,7 +47,7 @@ export const ContactModal: React.FC<ContactModalProps> = ({ onClose }) => {
       setSubmitting(true);
       setErrorMsg('');
 
-      // 1. Save ticket into support ticket registry & localStorage
+      // Save ticket into repository tracking store
       const ticket = saveTicket({
         name: name.trim(),
         email: email.trim(),
@@ -70,22 +60,10 @@ export const ContactModal: React.FC<ContactModalProps> = ({ onClose }) => {
       setSubmittedTicket(ticket);
     } catch (err) {
       console.error(err);
-      setErrorMsg('Failed to record ticket. Please try again or reach out on GitHub.');
+      setErrorMsg('Failed to submit message. Please try again or reach out directly.');
     } finally {
       setSubmitting(false);
     }
-  };
-
-  const handleCopyCsvRow = () => {
-    if (!submittedTicket) return;
-    const row = ticketToCsvRow(submittedTicket);
-    navigator.clipboard.writeText(row);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2500);
-  };
-
-  const handleDownloadCsv = () => {
-    downloadSupportTicketsCsv();
   };
 
   return (
@@ -99,7 +77,7 @@ export const ContactModal: React.FC<ContactModalProps> = ({ onClose }) => {
             </div>
             <div>
               <h3 className="text-base font-semibold text-neutral-900">Developer Contact & Support</h3>
-              <p className="text-xs text-neutral-500">Submit queries, feedback, or bugs to the ticket registry</p>
+              <p className="text-xs text-neutral-500">Reach out directly to the lead developer</p>
             </div>
           </div>
           <button
@@ -163,63 +141,31 @@ export const ContactModal: React.FC<ContactModalProps> = ({ onClose }) => {
               <CheckCircle2 className="w-10 h-10 text-emerald-600 mx-auto" />
               <div>
                 <h4 className="text-base font-bold text-emerald-900">
-                  Ticket Recorded in GitHub CSV Registry!
+                  Thank You! Your Inquiry Has Been Submitted
                 </h4>
-                <p className="text-xs text-emerald-800 mt-1 max-w-md mx-auto">
-                  Your ticket has been recorded with ID:{' '}
+                <p className="text-xs text-emerald-800 mt-1.5 max-w-md mx-auto leading-relaxed">
+                  Your message has been registered with Reference ID:{' '}
                   <span className="font-mono font-bold text-emerald-950 px-2 py-0.5 bg-emerald-100 rounded">
                     {submittedTicket.id}
                   </span>
-                  . You can download the updated CSV or copy your record below.
+                  . The developer (Divyanshu Gupta) will review your query and respond via email if needed.
                 </p>
               </div>
 
-              {/* Action Buttons for CSV */}
-              <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
-                <button
-                  onClick={handleDownloadCsv}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-emerald-700 hover:bg-emerald-800 text-white shadow-sm transition-all cursor-pointer"
-                  title="Download all support tickets in CSV format"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  <span>Download support_tickets.csv</span>
-                </button>
-
-                <button
-                  onClick={handleCopyCsvRow}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-white border border-emerald-300 text-emerald-800 hover:bg-emerald-100 transition-all cursor-pointer"
-                  title="Copy CSV row to clipboard"
-                >
-                  {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-                  <span>{copied ? 'Copied CSV Row!' : 'Copy CSV Row'}</span>
-                </button>
-
-                <a
-                  href="https://github.com/divyanshu2074/file-convertors"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-neutral-900 hover:bg-neutral-800 text-white shadow-sm transition-all"
-                >
-                  <GitHubIcon />
-                  <span>View Repository</span>
-                  <ExternalLink className="w-3 h-3 opacity-80" />
-                </a>
-              </div>
-
-              <div className="pt-2 flex justify-center gap-2 border-t border-emerald-200/60">
+              <div className="pt-2 flex justify-center gap-3">
                 <button
                   onClick={() => {
                     setSubmittedTicket(null);
                     setSubject('');
                     setMessage('');
                   }}
-                  className="px-4 py-1.5 rounded-xl text-xs font-medium text-emerald-800 hover:bg-emerald-100 transition-colors cursor-pointer"
+                  className="px-4 py-2 rounded-xl text-xs font-semibold bg-emerald-700 text-white hover:bg-emerald-800 transition-colors cursor-pointer shadow-xs"
                 >
-                  Submit Another Query
+                  Submit Another Message
                 </button>
                 <button
                   onClick={onClose}
-                  className="px-4 py-1.5 rounded-xl text-xs font-medium border border-emerald-300 text-emerald-800 hover:bg-emerald-100 transition-colors cursor-pointer"
+                  className="px-4 py-2 rounded-xl text-xs font-medium border border-emerald-300 text-emerald-800 hover:bg-emerald-100 transition-colors cursor-pointer"
                 >
                   Close Window
                 </button>
@@ -230,17 +176,9 @@ export const ContactModal: React.FC<ContactModalProps> = ({ onClose }) => {
               <div className="flex items-center justify-between border-b border-neutral-100 pb-2">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-700 flex items-center gap-1.5">
                   <MessageSquare className="w-3.5 h-3.5 text-indigo-600" />
-                  Raise Concerns & Inquiries
+                  Submit Query or Feedback
                 </h4>
-                <button
-                  type="button"
-                  onClick={handleDownloadCsv}
-                  className="inline-flex items-center gap-1 text-[11px] text-neutral-500 hover:text-indigo-600 font-medium cursor-pointer"
-                  title="Download all logged support tickets as CSV"
-                >
-                  <FileSpreadsheet className="w-3 h-3 text-emerald-600" />
-                  <span>Download support_tickets.csv</span>
-                </button>
+                <span className="text-[11px] text-neutral-400">Direct Developer Inquiries</span>
               </div>
 
               {errorMsg && (
@@ -299,7 +237,7 @@ export const ContactModal: React.FC<ContactModalProps> = ({ onClose }) => {
                     required
                     value={subject}
                     onChange={(e) => setSubject(e.target.value)}
-                    placeholder="Brief description of the query..."
+                    placeholder="Brief description of your query..."
                     className="w-full px-3 py-2 text-xs rounded-xl border border-neutral-200 focus:outline-none focus:ring-2 focus:ring-neutral-900/10"
                   />
                 </div>
@@ -319,7 +257,7 @@ export const ContactModal: React.FC<ContactModalProps> = ({ onClose }) => {
 
               <div className="flex items-center justify-between pt-2">
                 <span className="text-[11px] text-neutral-400">
-                  Logged directly to support_tickets.csv in repository
+                  Messages are sent directly to the project maintainer
                 </span>
 
                 <button
@@ -328,7 +266,7 @@ export const ContactModal: React.FC<ContactModalProps> = ({ onClose }) => {
                   className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-semibold bg-neutral-900 hover:bg-neutral-800 text-white shadow-sm transition-all disabled:opacity-50 cursor-pointer"
                 >
                   <Send className="w-3.5 h-3.5" />
-                  <span>{submitting ? 'Recording...' : 'Record Support Ticket'}</span>
+                  <span>{submitting ? 'Submitting...' : 'Submit Inquiry'}</span>
                 </button>
               </div>
             </form>
