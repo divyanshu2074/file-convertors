@@ -133,22 +133,24 @@ export const SignWorkspace: React.FC<SignWorkspaceProps> = ({ pdfBuffer, fileNam
       const previewW = container?.clientWidth || pageDims.width;
       const previewH = container?.clientHeight || pageDims.height;
 
-      // Map from preview pixels to standard PDF coordinate points (bottom-left origin)
-      const scaleX = pageDims.width / previewW;
-      const scaleY = pageDims.height / previewH;
-
-      const pdfX = signaturePos.x * scaleX;
-      // In PDF, y=0 is at the bottom
-      const pdfY = (previewH - (signaturePos.y + signaturePos.height)) * scaleY;
-      const pdfW = signaturePos.width * scaleX;
-      const pdfH = signaturePos.height * scaleY;
+      // Compute normalized 0..1 bounding box coordinates relative to container
+      const normX = Math.max(0, Math.min(1, signaturePos.x / previewW));
+      const normY = Math.max(0, Math.min(1, signaturePos.y / previewH));
+      const normW = Math.max(0.01, Math.min(1, signaturePos.width / previewW));
+      const normH = Math.max(0.01, Math.min(1, signaturePos.height / previewH));
 
       const signedBytes = await signPdf(pdfBuffer, signatureDataUrl, {
         page: currentPage,
-        x: pdfX,
-        y: pdfY,
-        width: pdfW,
-        height: pdfH,
+        x: signaturePos.x,
+        y: signaturePos.y,
+        width: signaturePos.width,
+        height: signaturePos.height,
+        normalized: {
+          x: normX,
+          y: normY,
+          width: normW,
+          height: normH,
+        },
       });
 
       downloadUint8Array(signedBytes, fileName.replace(/\.pdf$/i, '_signed.pdf'));

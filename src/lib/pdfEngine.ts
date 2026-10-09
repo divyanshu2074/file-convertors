@@ -305,7 +305,14 @@ export async function redactPdf(
 export async function signPdf(
   pdfBuffer: ArrayBuffer,
   signatureDataUrl: string,
-  placement: { page: number; x: number; y: number; width: number; height: number }
+  placement: {
+    page: number;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    normalized?: { x: number; y: number; width: number; height: number };
+  }
 ): Promise<Uint8Array> {
   const doc = await PDFDocument.load(pdfBuffer.slice(0), { ignoreEncryption: true });
   const pageIdx = placement.page - 1;
@@ -314,15 +321,30 @@ export async function signPdf(
   }
 
   const page = doc.getPage(pageIdx);
+  const { width: pageWidth, height: pageHeight } = page.getSize();
+  const rotation = page.getRotation().angle || 0;
+
   const base64Data = signatureDataUrl.replace(/^data:image\/\w+;base64,/, '');
   const bytes = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
-
   const image = await doc.embedPng(bytes);
+
+  let drawX = placement.x;
+  let drawY = placement.y;
+  let drawW = placement.width;
+  let drawH = placement.height;
+
+  if (placement.normalized) {
+    drawX = placement.normalized.x * pageWidth;
+    drawY = (1 - (placement.normalized.y + placement.normalized.height)) * pageHeight;
+    drawW = placement.normalized.width * pageWidth;
+    drawH = placement.normalized.height * pageHeight;
+  }
+
   page.drawImage(image, {
-    x: placement.x,
-    y: placement.y,
-    width: placement.width,
-    height: placement.height,
+    x: Math.max(0, drawX),
+    y: Math.max(0, drawY),
+    width: Math.min(pageWidth, drawW),
+    height: Math.min(pageHeight, drawH),
   });
 
   return await doc.save();

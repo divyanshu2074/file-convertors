@@ -1,9 +1,10 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState } from 'react';
 import { Trash2, Move } from 'lucide-react';
+import { NormalizedRect } from '../lib/custom-canvas';
 
 export interface BoxRect {
-  x: number;
-  y: number;
+  x: number; // in pixels relative to container
+  y: number; // in pixels relative to container
   width: number;
   height: number;
 }
@@ -19,7 +20,6 @@ interface TransformBoxProps {
   onSelect?: () => void;
   minWidth?: number;
   minHeight?: number;
-  aspectRatio?: number;
   lockAspectRatio?: boolean;
   label?: string;
   zoom?: number;
@@ -31,11 +31,13 @@ export const TransformBox: React.FC<TransformBoxProps> = ({
   rect,
   onChange,
   onDelete,
+  boundsWidth,
+  boundsHeight,
   children,
   isSelected = true,
   onSelect,
-  minWidth = 30,
-  minHeight = 20,
+  minWidth = 20,
+  minHeight = 15,
   lockAspectRatio = false,
   label,
   zoom = 1.0,
@@ -76,15 +78,17 @@ export const TransformBox: React.FC<TransformBoxProps> = ({
 
     rafIdRef.current = requestAnimationFrame(() => {
       if (!dragStartRef.current) return;
-      // Crucial: divide pointer delta by zoom factor so movement matches the cursor 1:1 regardless of zoom level
+      // Precise zoom compensation: divide delta by zoom factor
       const currentZoom = zoom > 0 ? zoom : 1.0;
       const dx = (clientX - dragStartRef.current.pointerX) / currentZoom;
       const dy = (clientY - dragStartRef.current.pointerY) / currentZoom;
       const initial = dragStartRef.current.rect;
 
       if (activeHandle === 'move') {
-        const nextX = Math.max(0, initial.x + dx);
-        const nextY = Math.max(0, initial.y + dy);
+        const maxX = boundsWidth ? boundsWidth - initial.width : Infinity;
+        const maxY = boundsHeight ? boundsHeight - initial.height : Infinity;
+        const nextX = Math.max(0, Math.min(maxX, initial.x + dx));
+        const nextY = Math.max(0, Math.min(maxY, initial.y + dy));
         onChange({
           ...initial,
           x: Math.round(nextX),
@@ -100,12 +104,16 @@ export const TransformBox: React.FC<TransformBoxProps> = ({
 
       if (activeHandle === 'se') {
         newW = Math.max(minWidth, initial.width + dx);
-        newH = lockAspectRatio ? newW * (initial.height / initial.width) : Math.max(minHeight, initial.height + dy);
+        newH = lockAspectRatio
+          ? newW * (initial.height / initial.width)
+          : Math.max(minHeight, initial.height + dy);
       } else if (activeHandle === 'sw') {
         const potentialW = Math.max(minWidth, initial.width - dx);
         newX = initial.x + (initial.width - potentialW);
         newW = potentialW;
-        newH = lockAspectRatio ? newW * (initial.height / initial.width) : Math.max(minHeight, initial.height + dy);
+        newH = lockAspectRatio
+          ? newW * (initial.height / initial.width)
+          : Math.max(minHeight, initial.height + dy);
       } else if (activeHandle === 'ne') {
         newW = Math.max(minWidth, initial.width + dx);
         const potentialH = Math.max(minHeight, initial.height - dy);
@@ -120,11 +128,19 @@ export const TransformBox: React.FC<TransformBoxProps> = ({
         newH = lockAspectRatio ? newW * (initial.height / initial.width) : potentialH;
       }
 
+      // Constrain inside bounds if bounds provided
+      if (boundsWidth && newX + newW > boundsWidth) {
+        newW = boundsWidth - newX;
+      }
+      if (boundsHeight && newY + newH > boundsHeight) {
+        newH = boundsHeight - newY;
+      }
+
       onChange({
-        x: Math.round(newX),
-        y: Math.round(newY),
-        width: Math.round(newW),
-        height: Math.round(newH),
+        x: Math.round(Math.max(0, newX)),
+        y: Math.round(Math.max(0, newY)),
+        width: Math.round(Math.max(minWidth, newW)),
+        height: Math.round(Math.max(minHeight, newH)),
       });
     });
   };
@@ -176,7 +192,7 @@ export const TransformBox: React.FC<TransformBoxProps> = ({
       {isSelected && (
         <>
           {/* Top Info Bar / Delete Handle */}
-          <div className="absolute -top-7 left-0 flex items-center gap-1.5 z-20 pointer-events-auto">
+          <div className="absolute -top-7 left-0 flex items-center gap-1.5 z-30 pointer-events-auto">
             {label && (
               <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold bg-indigo-600 text-white shadow-xs">
                 {label}
@@ -192,7 +208,7 @@ export const TransformBox: React.FC<TransformBoxProps> = ({
                   e.stopPropagation();
                   onDelete();
                 }}
-                className="p-1 rounded bg-rose-600 hover:bg-rose-700 text-white shadow-xs transition-colors"
+                className="p-1 rounded bg-rose-600 hover:bg-rose-700 text-white shadow-xs transition-colors cursor-pointer"
                 title="Delete item"
               >
                 <Trash2 className="w-3 h-3" />
@@ -208,19 +224,19 @@ export const TransformBox: React.FC<TransformBoxProps> = ({
           {/* 4 Corner Resize Handles */}
           <div
             onPointerDown={(e) => handlePointerDown(e, 'nw')}
-            className="absolute -top-1.5 -left-1.5 w-3.5 h-3.5 bg-white border-2 border-indigo-600 rounded-full cursor-nwse-resize shadow-xs z-30"
+            className="absolute -top-1.5 -left-1.5 w-3.5 h-3.5 bg-white border-2 border-indigo-600 rounded-full cursor-nwse-resize shadow-xs z-40"
           />
           <div
             onPointerDown={(e) => handlePointerDown(e, 'ne')}
-            className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 bg-white border-2 border-indigo-600 rounded-full cursor-nesw-resize shadow-xs z-30"
+            className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 bg-white border-2 border-indigo-600 rounded-full cursor-nesw-resize shadow-xs z-40"
           />
           <div
             onPointerDown={(e) => handlePointerDown(e, 'se')}
-            className="absolute -bottom-1.5 -right-1.5 w-3.5 h-3.5 bg-white border-2 border-indigo-600 rounded-full cursor-nwse-resize shadow-xs z-30"
+            className="absolute -bottom-1.5 -right-1.5 w-3.5 h-3.5 bg-white border-2 border-indigo-600 rounded-full cursor-nwse-resize shadow-xs z-40"
           />
           <div
             onPointerDown={(e) => handlePointerDown(e, 'sw')}
-            className="absolute -bottom-1.5 -left-1.5 w-3.5 h-3.5 bg-white border-2 border-indigo-600 rounded-full cursor-nesw-resize shadow-xs z-30"
+            className="absolute -bottom-1.5 -left-1.5 w-3.5 h-3.5 bg-white border-2 border-indigo-600 rounded-full cursor-nesw-resize shadow-xs z-40"
           />
         </>
       )}
