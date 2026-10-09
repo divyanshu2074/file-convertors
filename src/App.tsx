@@ -6,6 +6,7 @@ import { RetroCliDashboard } from './components/RetroCliDashboard';
 import { OfflineCacheButton } from './components/OfflineCacheButton';
 import { ContactModal } from './components/ContactModal';
 import { getLastServerUpdateTime } from './lib/offlineManager';
+import { trackPageView, trackToolOpen } from './lib/analytics';
 import { TOOLS, CATEGORIES } from './data/tools';
 import { ToolDef } from './types';
 import { ShieldCheck, Cpu, Zap, Lock, Sparkles, Terminal, Wifi, WifiOff, Clock, User } from 'lucide-react';
@@ -24,6 +25,9 @@ export function App() {
   useEffect(() => {
     setLastServerUpdate(getLastServerUpdateTime());
 
+    // Track initial page visit
+    trackPageView();
+
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
 
@@ -35,6 +39,11 @@ export function App() {
       window.removeEventListener('offline', handleOffline);
     };
   }, []);
+
+  const handleSelectTool = (tool: ToolDef) => {
+    trackToolOpen(tool.id, tool.title);
+    setActiveTool(tool);
+  };
 
   // Filter tools based on category and search query
   const filteredTools = useMemo(() => {
@@ -131,7 +140,7 @@ export function App() {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {filteredTools.map((tool) => (
-                <ToolCard key={tool.id} tool={tool} onSelect={(t) => setActiveTool(t)} />
+                <ToolCard key={tool.id} tool={tool} onSelect={handleSelectTool} />
               ))}
             </div>
           )}

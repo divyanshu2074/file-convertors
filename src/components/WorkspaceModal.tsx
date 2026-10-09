@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ToolDef, UploadedFile } from '../types';
 import { DropZone } from './DropZone';
 import { IconResolver } from './IconResolver';
 import { X, ArrowLeft, ShieldCheck, Sparkles } from 'lucide-react';
+import { setActiveTrackingTool } from '../lib/analytics';
 import { OrganizeWorkspace } from './workspaces/OrganizeWorkspace';
 import { SignWorkspace } from './workspaces/SignWorkspace';
 import { EditWorkspace } from './workspaces/EditWorkspace';
@@ -21,6 +22,13 @@ interface WorkspaceModalProps {
 
 export const WorkspaceModal: React.FC<WorkspaceModalProps> = ({ tool, onClose }) => {
   const [files, setFiles] = useState<UploadedFile[]>([]);
+
+  useEffect(() => {
+    setActiveTrackingTool({ id: tool.id, title: tool.title });
+    return () => {
+      setActiveTrackingTool(null);
+    };
+  }, [tool]);
 
   const handleFilesSelected = async (newFiles: File[]) => {
     const loadedFiles: UploadedFile[] = [];
