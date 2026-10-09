@@ -269,9 +269,9 @@ export const EditWorkspace: React.FC<EditWorkspaceProps> = ({ pdfBuffer, fileNam
   return (
     <div className="space-y-4">
       {/* Top Toolbar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 bg-white rounded-2xl border border-neutral-200 shadow-xs">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-3.5 bg-white rounded-2xl border border-neutral-200 shadow-xs">
         {/* Tool Modes */}
-        <div className="flex items-center gap-1.5 p-1 bg-neutral-100 rounded-xl text-xs font-medium">
+        <div className="flex items-center gap-1.5 p-1 bg-neutral-100 rounded-xl text-xs font-medium overflow-x-auto max-w-full scrollbar-none py-1">
           <button
             onClick={() => setActiveTool('select')}
             className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
@@ -348,7 +348,7 @@ export const EditWorkspace: React.FC<EditWorkspaceProps> = ({ pdfBuffer, fileNam
         </div>
 
         {/* Styling Controls */}
-        <div className="flex items-center gap-3 text-xs">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs">
           {/* Stroke Color Picker */}
           <div className="flex items-center gap-1.5">
             <span className="text-neutral-500 font-medium">Outline:</span>
@@ -407,7 +407,7 @@ export const EditWorkspace: React.FC<EditWorkspaceProps> = ({ pdfBuffer, fileNam
                 value={textInput}
                 onChange={(e) => setTextInput(e.target.value)}
                 placeholder="Text..."
-                className="w-32 px-2.5 py-1 rounded-lg border border-neutral-200 text-xs"
+                className="w-28 sm:w-32 px-2.5 py-1 rounded-lg border border-neutral-200 text-xs"
               />
               <select
                 value={fontSize}
@@ -425,7 +425,7 @@ export const EditWorkspace: React.FC<EditWorkspaceProps> = ({ pdfBuffer, fileNam
         </div>
 
         {/* Page Nav & Save */}
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center justify-between sm:justify-end gap-3 pt-2 md:pt-0 border-t md:border-t-0 border-neutral-100">
           <div className="flex items-center gap-1 text-xs">
             <button
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
@@ -446,7 +446,7 @@ export const EditWorkspace: React.FC<EditWorkspaceProps> = ({ pdfBuffer, fileNam
           <button
             onClick={handleSaveAndDownload}
             disabled={processing || shapes.length === 0}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-neutral-900 hover:bg-neutral-800 disabled:bg-neutral-300 text-white shadow-sm transition-all cursor-pointer"
+            className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-neutral-900 hover:bg-neutral-800 disabled:bg-neutral-300 text-white shadow-sm transition-all cursor-pointer"
           >
             {done ? <Check className="w-4 h-4 text-emerald-400" /> : <Download className="w-4 h-4" />}
             {processing ? 'Saving...' : done ? 'Downloaded!' : 'Save & Download'}

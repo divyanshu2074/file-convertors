@@ -33,7 +33,7 @@ export const Header: React.FC<HeaderProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-bold text-xl tracking-tight text-neutral-900">LocalPDF</span>
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200/60">
+                <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200/60">
                   <ShieldCheck className="w-3.5 h-3.5" />
                   100% Client-Side
                 </span>
@@ -56,7 +56,10 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Right Links */}
           <div className="flex items-center gap-2 sm:gap-3">
-            <OfflineCacheButton variant="compact" />
+            {/* Offline Cache: Hidden on mobile header to prevent crowding */}
+            <div className="hidden sm:block">
+              <OfflineCacheButton variant="compact" />
+            </div>
 
             {onOpenContact && (
               <button
@@ -71,7 +74,7 @@ export const Header: React.FC<HeaderProps> = ({
             {onOpenChangelog && (
               <button
                 onClick={onOpenChangelog}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition-colors border border-emerald-200/60 cursor-pointer"
+                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-mono font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition-colors border border-emerald-200/60 cursor-pointer"
                 title="Open live retro CLI changelog"
               >
                 <span>CLI_LOG</span>
@@ -81,7 +84,7 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
 
         {/* Mobile Search */}
-        <div className="py-2.5 md:hidden">
+        <div className="py-2 md:hidden">
           <div className="relative">
             <Search className="w-4 h-4 text-neutral-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
@@ -95,7 +98,7 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
 
         {/* Category Tabs */}
-        <div className="flex items-center gap-1.5 overflow-x-auto py-2.5 no-scrollbar text-xs">
+        <div className="flex items-center gap-1.5 overflow-x-auto py-2.5 no-scrollbar text-xs -mx-4 px-4 sm:mx-0 sm:px-0">
           {categories.map((cat) => {
             const isActive = selectedCategory === cat.id;
             return (

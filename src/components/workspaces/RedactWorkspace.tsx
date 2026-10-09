@@ -251,45 +251,45 @@ export const RedactWorkspace: React.FC<RedactWorkspaceProps> = ({ pdfBuffer, fil
   return (
     <div className="space-y-4">
       {/* Top Banner & Mode Controls */}
-      <div className="flex flex-wrap items-center justify-between gap-4 p-4 bg-neutral-900 text-white rounded-2xl shadow-sm">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 sm:p-4 bg-neutral-900 text-white rounded-2xl shadow-sm">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-red-500/20 text-red-400 flex items-center justify-center">
+          <div className="w-9 h-9 rounded-xl bg-red-500/20 text-red-400 flex items-center justify-center shrink-0">
             <EyeOff className="w-5 h-5" />
           </div>
-          <div className="text-left">
+          <div className="text-left min-w-0">
             <h4 className="text-sm font-semibold flex items-center gap-2">
-              Permanent Redaction Engine
-              <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-red-600 text-white">
-                Irreversible
+              <span>Permanent Redaction</span>
+              <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-red-600 text-white shrink-0">
+                Permanent
               </span>
             </h4>
-            <p className="text-xs text-neutral-400">
+            <p className="text-[11px] sm:text-xs text-neutral-400 line-clamp-1">
               Drag to draw blackout rectangles or select text words to redact permanently.
             </p>
           </div>
         </div>
 
         {/* Mode switcher & navigation */}
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center justify-between sm:justify-end gap-2.5 w-full sm:w-auto pt-1 sm:pt-0 border-t border-neutral-800 sm:border-t-0">
           {/* Mode Tabs */}
           <div className="flex bg-neutral-800 p-1 rounded-xl text-xs font-medium">
             <button
               onClick={() => setRedactMode('draw')}
-              className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
+              className={`px-2.5 sm:px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
                 redactMode === 'draw' ? 'bg-red-600 text-white shadow-xs' : 'text-neutral-400 hover:text-white'
               }`}
             >
               <Square className="w-3.5 h-3.5" />
-              Drag Rectangle
+              <span>Draw Box</span>
             </button>
             <button
               onClick={() => setRedactMode('text-select')}
-              className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
+              className={`px-2.5 sm:px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
                 redactMode === 'text-select' ? 'bg-red-600 text-white shadow-xs' : 'text-neutral-400 hover:text-white'
               }`}
             >
               <Type className="w-3.5 h-3.5" />
-              Select Text
+              <span>Select Text</span>
             </button>
           </div>
 
@@ -302,8 +302,8 @@ export const RedactWorkspace: React.FC<RedactWorkspaceProps> = ({ pdfBuffer, fil
             >
               <ChevronLeft className="w-3.5 h-3.5" />
             </button>
-            <span>
-              Page {currentPage} of {totalPages}
+            <span className="text-[11px] whitespace-nowrap">
+              {currentPage} / {totalPages}
             </span>
             <button
               onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
@@ -317,10 +317,10 @@ export const RedactWorkspace: React.FC<RedactWorkspaceProps> = ({ pdfBuffer, fil
           <button
             onClick={handleApplyRedactions}
             disabled={processing || redactions.length === 0}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-red-600 hover:bg-red-500 disabled:bg-neutral-800 text-white shadow-sm transition-all cursor-pointer"
+            className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-red-600 hover:bg-red-500 disabled:bg-neutral-800 text-white shadow-sm transition-all cursor-pointer"
           >
             {done ? <Check className="w-4 h-4 text-white" /> : <Download className="w-4 h-4" />}
-            {processing ? 'Applying...' : done ? 'Redacted!' : 'Apply & Download'}
+            <span>{processing ? 'Applying...' : done ? 'Redacted!' : 'Apply & Download'}</span>
           </button>
         </div>
       </div>

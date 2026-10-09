@@ -367,7 +367,7 @@ export const GenericPdfWorkspace: React.FC<GenericWorkspaceProps> = ({ tool, fil
         {tool.id === 'compress-pdf' && (
           <div className="space-y-2">
             <span className="text-xs text-neutral-500 font-medium">Select Compression Profile:</span>
-            <div className="grid grid-cols-3 gap-2 text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
               {[
                 { id: 'extreme', title: 'Extreme', desc: 'Lowest file size, medium quality' },
                 { id: 'recommended', title: 'Recommended', desc: 'Good balance of quality & size' },
@@ -397,7 +397,7 @@ export const GenericPdfWorkspace: React.FC<GenericWorkspaceProps> = ({ tool, fil
         {tool.id === 'split-pdf' && (
           <div className="space-y-3">
             <span className="text-xs text-neutral-700 font-medium">Split Method:</span>
-            <div className="grid grid-cols-2 gap-2 text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
               <button
                 type="button"
                 onClick={() => setSplitMode('all')}
@@ -444,7 +444,7 @@ export const GenericPdfWorkspace: React.FC<GenericWorkspaceProps> = ({ tool, fil
         {tool.id === 'rotate-pdf' && (
           <div className="space-y-2">
             <span className="text-xs text-neutral-700 font-medium">Rotation Angle:</span>
-            <div className="flex gap-2 text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
               {[
                 { angle: 90, label: '90° Clockwise' },
                 { angle: 180, label: '180° Upside Down' },
@@ -469,7 +469,7 @@ export const GenericPdfWorkspace: React.FC<GenericWorkspaceProps> = ({ tool, fil
 
         {/* Page Numbers */}
         {tool.id === 'page-numbers' && (
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1">
               <span className="text-xs text-neutral-700 font-medium">Position:</span>
               <select

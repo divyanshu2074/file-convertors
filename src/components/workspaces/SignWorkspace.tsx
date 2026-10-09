@@ -50,19 +50,34 @@ export const SignWorkspace: React.FC<SignWorkspaceProps> = ({ pdfBuffer, fileNam
     };
   }, [pdfBuffer, currentPage]);
 
-  // Handle signature drawing canvas
-  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  const getCanvasCoords = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>, canvas: HTMLCanvasElement) => {
+    const rect = canvas.getBoundingClientRect();
+    if ('touches' in e && e.touches.length > 0) {
+      return {
+        x: e.touches[0].clientX - rect.left,
+        y: e.touches[0].clientY - rect.top,
+      };
+    }
+    const mouse = e as React.MouseEvent<HTMLCanvasElement>;
+    return {
+      x: mouse.clientX - rect.left,
+      y: mouse.clientY - rect.top,
+    };
+  };
+
+  // Handle signature drawing canvas with mouse and touch support
+  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
     const canvas = drawCanvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     setIsDrawing(true);
-    const rect = canvas.getBoundingClientRect();
+    const coords = getCanvasCoords(e, canvas);
     ctx.beginPath();
-    ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
+    ctx.moveTo(coords.x, coords.y);
   };
 
-  const draw = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  const draw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
     if (!isDrawing) return;
     const canvas = drawCanvasRef.current;
     if (!canvas) return;
@@ -71,7 +86,8 @@ export const SignWorkspace: React.FC<SignWorkspaceProps> = ({ pdfBuffer, fileNam
     ctx.lineWidth = 2.5;
     ctx.lineCap = 'round';
     ctx.strokeStyle = '#0f172a';
-    ctx.lineTo(e.clientX - canvas.getBoundingClientRect().left, e.clientY - canvas.getBoundingClientRect().top);
+    const coords = getCanvasCoords(e, canvas);
+    ctx.lineTo(coords.x, coords.y);
     ctx.stroke();
   };
 
@@ -216,7 +232,11 @@ export const SignWorkspace: React.FC<SignWorkspaceProps> = ({ pdfBuffer, fileNam
                 onMouseMove={draw}
                 onMouseUp={stopDrawing}
                 onMouseLeave={stopDrawing}
-                className="w-full h-40 cursor-crosshair"
+                onTouchStart={startDrawing}
+                onTouchMove={draw}
+                onTouchEnd={stopDrawing}
+                onTouchCancel={stopDrawing}
+                className="w-full h-40 cursor-crosshair touch-none"
               />
               <button
                 onClick={clearCanvas}

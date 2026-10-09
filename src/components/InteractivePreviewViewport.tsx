@@ -377,7 +377,7 @@ export const InteractivePreviewViewport: React.FC<InteractivePreviewViewportProp
           maxHeight: isFullscreen ? '100vh' : maxHeight,
           cursor: showPanOverlay ? (isPanning ? 'grabbing' : 'grab') : 'default',
         }}
-        className="relative flex-1 w-full overflow-hidden flex items-center justify-center p-6 sm:p-10 touch-none"
+        className="relative flex-1 w-full overflow-hidden flex items-center justify-center p-2 sm:p-8 touch-none"
       >
         {/* Scaled & Translated Document Container */}
         <div
@@ -434,10 +434,11 @@ export const InteractivePreviewViewport: React.FC<InteractivePreviewViewportProp
       </div>
 
       {/* Helpful bottom status indicator */}
-      <div className="px-4 py-1.5 bg-neutral-200/40 dark:bg-neutral-900/40 border-t border-neutral-200/50 text-[10px] text-neutral-500 flex items-center justify-between">
-        <span className="flex items-center gap-1.5">
-          <Move className="w-3 h-3 text-neutral-400" />
-          <span>Wheel: Scroll • Ctrl + Wheel: Zoom • Hold Space or Toggle Pan to Drag</span>
+      <div className="px-3 sm:px-4 py-1.5 bg-neutral-200/40 dark:bg-neutral-900/40 border-t border-neutral-200/50 text-[10px] text-neutral-500 flex items-center justify-between gap-2">
+        <span className="flex items-center gap-1.5 truncate">
+          <Move className="w-3 h-3 text-neutral-400 shrink-0" />
+          <span className="hidden sm:inline">Wheel: Scroll • Ctrl + Wheel: Zoom • Hold Space or Toggle Pan to Drag</span>
+          <span className="sm:hidden">Drag to pan • Use + / - to zoom</span>
         </span>
         {(pan.x !== 0 || pan.y !== 0 || zoom !== 1.0) && (
           <button
