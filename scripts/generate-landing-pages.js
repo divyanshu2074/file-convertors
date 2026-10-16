@@ -183,6 +183,7 @@ for (const p of PAGES) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>${p.title} | DocuZenith</title>
     <meta name="description" content="${p.metaDesc}" />
+    <meta name="google-site-verification" content="-G6xpn8iM-npkMqzVXm1uZiWUgkJHOonIzqnLGhmy80" />
     <link rel="canonical" href="${BASE_URL}/tools/${p.id}.html" />
     <link rel="icon" type="image/svg+xml" href="../favicon.svg" />
 
