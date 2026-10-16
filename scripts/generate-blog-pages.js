@@ -51,6 +51,7 @@ const hubHtml = `<!doctype html>
     <title>DocuZenith Engineering, Security & Architecture Blog</title>
     <meta name="description" content="In-depth guides on client-side WebAssembly document processing, true PDF redaction, HIPAA/GDPR data security, and in-browser conversion architectures." />
     <meta name="google-site-verification" content="-G6xpn8iM-npkMqzVXm1uZiWUgkJHOonIzqnLGhmy80" />
+    <meta name="msvalidate.01" content="E45AB70458A77F2056C817FADA06B545" />
     <link rel="canonical" href="${BASE_URL}/blog/" />
     <link rel="icon" type="image/svg+xml" href="../favicon.svg" />
     <style>
@@ -128,6 +129,7 @@ for (const p of posts) {
     <title>${p.title} | DocuZenith</title>
     <meta name="description" content="${p.metaDesc}" />
     <meta name="google-site-verification" content="-G6xpn8iM-npkMqzVXm1uZiWUgkJHOonIzqnLGhmy80" />
+    <meta name="msvalidate.01" content="E45AB70458A77F2056C817FADA06B545" />
     <link rel="canonical" href="${BASE_URL}/blog/${p.slug}.html" />
     <link rel="icon" type="image/svg+xml" href="../favicon.svg" />
 

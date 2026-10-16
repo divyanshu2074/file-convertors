@@ -84,6 +84,7 @@ for (const tool of allTools) {
     <title>${pageTitle}</title>
     <meta name="description" content="${metaDesc}" />
     <meta name="google-site-verification" content="-G6xpn8iM-npkMqzVXm1uZiWUgkJHOonIzqnLGhmy80" />
+    <meta name="msvalidate.01" content="E45AB70458A77F2056C817FADA06B545" />
     <link rel="canonical" href="${BASE_URL}/tools/${tool.id}.html" />
     <link rel="icon" type="image/svg+xml" href="../favicon.svg" />
 
