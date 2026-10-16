@@ -22,16 +22,12 @@ const blogSlugs = [...blogsCode.matchAll(/slug:\s*'([^']+)'/g)].map((m) => m[1])
 
 let xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-
-  <!-- Core Landing Page -->
   <url>
     <loc>${BASE_URL}/</loc>
     <lastmod>${TODAY}</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>
-
-  <!-- Blog Knowledge Base Hub -->
   <url>
     <loc>${BASE_URL}/blog/</loc>
     <lastmod>${TODAY}</lastmod>
