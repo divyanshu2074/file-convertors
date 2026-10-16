@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Edit PDF Online Free - 100% Client-Side & Private | DocuZenith</title>
+    <meta name="description" content="Edit PDF online for free. Add text annotations, freehand drawings, highlights, and geometric shapes. 100% in-browser processing with zero server uploads, complete privacy, and offline support on DocuZenith." />
+    <meta name="google-site-verification" content="-G6xpn8iM-npkMqzVXm1uZiWUgkJHOonIzqnLGhmy80" />
+    <link rel="canonical" href="https://divyanshu2074.github.io/file-convertors/tools/edit-pdf.html" />
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://divyanshu2074.github.io/file-convertors/tools/edit-pdf.html" />
+    <meta property="og:title" content="Edit PDF Online Free - 100% Client-Side & Private | DocuZenith" />
+    <meta property="og:description" content="Edit PDF online for free. Add text annotations, freehand drawings, highlights, and geometric shapes. 100% in-browser processing with zero server uploads, complete privacy, and offline support on DocuZenith." />
+    <meta property="og:site_name" content="DocuZenith" />
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Edit PDF Online Free - 100% Client-Side & Private | DocuZenith" />
+    <meta name="twitter:description" content="Edit PDF online for free. Add text annotations, freehand drawings, highlights, and geometric shapes. 100% in-browser processing with zero server uploads, complete privacy, and offline support on DocuZenith." />
+
+    <!-- Structured Data Schema -->
+    <script type="application/ld+json">
+      {"@context":"https://schema.org","@type":"WebApplication","name":"DocuZenith Edit PDF","url":"https://divyanshu2074.github.io/file-convertors/tools/edit-pdf.html","description":"Edit PDF online for free. Add text annotations, freehand drawings, highlights, and geometric shapes. 100% in-browser processing with zero server uploads, complete privacy, and offline support on DocuZenith.","applicationCategory":"BusinessApplication","operatingSystem":"All modern browsers","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}
+    </script>
+    <script type="application/ld+json">
+      {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Are my files uploaded to any server when using Edit PDF?","acceptedAnswer":{"@type":"Answer","text":"No. DocuZenith operates 100% in your browser using local CPU and WebAssembly. Your documents never touch external servers or cloud storage."}},{"@type":"Question","name":"Is Edit PDF free and unlimited?","acceptedAnswer":{"@type":"Answer","text":"Yes, DocuZenith is completely free with no subscriptions, file size paywalls, or daily task limits."}},{"@type":"Question","name":"Does it work offline without internet?","acceptedAnswer":{"@type":"Answer","text":"Yes! Once cached in your browser via our Progressive Web App (PWA) Service Worker, you can use DocuZenith even without an internet connection."}}]}
+    </script>
+
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        background-color: #fafafa;
+        color: #171717;
+        line-height: 1.5;
+      }
+      .header {
+        border-bottom: 1px solid #e5e5e5;
+        background: rgba(255, 255, 255, 0.9);
+        position: sticky;
+        top: 0;
+        z-index: 50;
+      }
+      .nav-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 1.5rem;
+        height: 4rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .logo {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        text-decoration: none;
+        color: inherit;
+      }
+      .logo-icon {
+        width: 2.5rem;
+        height: 2.5rem;
+        border-radius: 0.75rem;
+        background: linear-gradient(135deg, #4f46e5, #9333ea);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: 800;
+      }
+      .hero-section {
+        max-width: 900px;
+        margin: 3rem auto;
+        padding: 0 1.5rem;
+        text-align: center;
+      }
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.375rem;
+        padding: 0.25rem 0.75rem;
+        border-radius: 9999px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        background: #ecfdf5;
+        color: #047857;
+        border: 1px solid #a7f3d0;
+        margin-bottom: 1.25rem;
+      }
+      h1 {
+        font-size: clamp(2rem, 4vw, 3.25rem);
+        font-weight: 800;
+        letter-spacing: -0.03em;
+        line-height: 1.15;
+        color: #0a0a0a;
+        margin-bottom: 1rem;
+      }
+      .subhead {
+        font-size: 1.125rem;
+        color: #525252;
+        max-width: 700px;
+        margin: 0 auto 2rem auto;
+      }
+      .cta-card {
+        background: white;
+        border: 2px dashed #cbd5e1;
+        border-radius: 1.5rem;
+        padding: 3rem 2rem;
+        margin: 2rem 0;
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
+      }
+      .cta-btn {
+        display: inline-block;
+        background: #0f172a;
+        color: white;
+        padding: 1rem 2.25rem;
+        border-radius: 1rem;
+        font-weight: 700;
+        font-size: 1rem;
+        text-decoration: none;
+        transition: transform 0.15s ease, background 0.15s ease;
+      }
+      .cta-btn:hover {
+        background: #334155;
+        transform: translateY(-2px);
+      }
+      .privacy-strip {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 1.5rem;
+        font-size: 0.8125rem;
+        color: #64748b;
+        margin-top: 1.5rem;
+      }
+      .faq-section {
+        max-width: 800px;
+        margin: 4rem auto;
+        padding: 0 1.5rem;
+      }
+      .faq-item {
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 1rem;
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+      }
+      .faq-item h3 {
+        font-size: 1.05rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+        color: #0f172a;
+      }
+      .faq-item p {
+        font-size: 0.9375rem;
+        color: #475569;
+        line-height: 1.6;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="header">
+      <div class="nav-container">
+        <a href="https://divyanshu2074.github.io/file-convertors/" class="logo">
+          <div class="logo-icon">DZ</div>
+          <div>
+            <strong style="font-size: 1.125rem;">DocuZenith</strong>
+            <span style="font-size: 0.75rem; color: #059669; margin-left: 0.35rem;">• 100% Client-Side</span>
+          </div>
+        </a>
+        <a href="https://divyanshu2074.github.io/file-convertors/" class="cta-btn" style="padding: 0.5rem 1rem; font-size: 0.8125rem; border-radius: 0.5rem;">All 28 Tools</a>
+      </div>
+    </header>
+
+    <main class="hero-section">
+      <div class="badge">🔒 100% Client-Side Edit PDF</div>
+      <h1>Edit PDF Online Free & Secure</h1>
+      <p class="subhead">Add text annotations, freehand drawings, highlights, and geometric shapes.</p>
+
+      <div class="cta-card">
+        <div style="font-size: 2.5rem; margin-bottom: 1rem;">📄</div>
+        <h2 style="font-size: 1.25rem; margin-bottom: 0.5rem;">Process your document privately</h2>
+        <p style="font-size: 0.875rem; color: #64748b; margin-bottom: 1.5rem;">Processed locally via in-memory WebAssembly. Zero data touches any cloud server.</p>
+        <a href="https://divyanshu2074.github.io/file-convertors/#/edit-pdf" class="cta-btn">Open Edit PDF Tool</a>
+      </div>
+
+      <div class="privacy-strip">
+        <span>🔒 Zero Server Uploads</span>
+        <span>⚡ 100% In-Browser RAM</span>
+        <span>🛡️ HIPAA & GDPR Safe</span>
+        <span>📶 Works Offline</span>
+      </div>
+    </main>
+
+    <section class="faq-section">
+      <h2 style="font-size: 1.5rem; font-weight: 800; margin-bottom: 1.5rem; text-align: center;">Frequently Asked Questions</h2>
+      
+      <div class="faq-item">
+        <h3>Are my files uploaded to any server when using Edit PDF?</h3>
+        <p>No. DocuZenith operates 100% in your browser using local CPU and WebAssembly. Your documents never touch external servers or cloud storage.</p>
+      </div>
+      <div class="faq-item">
+        <h3>Is Edit PDF free and unlimited?</h3>
+        <p>Yes, DocuZenith is completely free with no subscriptions, file size paywalls, or daily task limits.</p>
+      </div>
+      <div class="faq-item">
+        <h3>Does it work offline without internet?</h3>
+        <p>Yes! Once cached in your browser via our Progressive Web App (PWA) Service Worker, you can use DocuZenith even without an internet connection.</p>
+      </div>
+    </section>
+  </body>
+</html>
