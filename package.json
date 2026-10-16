@@ -6,9 +6,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build:seo": "node scripts/generate-sitemap.js && node scripts/generate-landing-pages.js",
+    "build:seo": "node scripts/generate-landing-pages.js && node scripts/generate-blog-pages.js && node scripts/generate-sitemap.js",
     "seo:ping": "node scripts/ping-indexnow.js",
-    "build": "node scripts/generate-sitemap.js && node scripts/generate-landing-pages.js && tsc -b && vite build",
+    "build": "node scripts/generate-landing-pages.js && node scripts/generate-blog-pages.js && node scripts/generate-sitemap.js && tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview"
   },

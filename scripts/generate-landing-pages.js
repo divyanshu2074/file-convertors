@@ -7,166 +7,53 @@ const __dirname = path.dirname(__filename);
 
 const BASE_URL = 'https://divyanshu2074.github.io/file-convertors';
 
-const PAGES = [
-  {
-    id: 'merge-pdf',
-    title: 'Merge PDF Online Free - 100% Client-Side & Confidential',
-    h1: 'Merge PDF Documents Securely in Your Browser',
-    sub: 'Combine multiple PDF files into one clean document with zero server uploads. 100% private, instant, and unlimited file sizes.',
-    metaDesc: 'Merge PDF files online 100% in your browser. Zero server uploads, complete data privacy, unlimited file sizes, and instant in-memory processing with DocuZenith.',
-    badge: '100% Client-Side Merger',
-    gradient: 'from-blue-600 to-indigo-600',
-    faqs: [
-      {
-        q: 'Are my PDF documents uploaded to an external server?',
-        a: 'No. Unlike traditional tools such as iLovePDF or Smallpdf, DocuZenith runs 100% client-side in your web browser using WebAssembly. Your files are processed entirely in your computer’s local memory and are never uploaded to any server.'
-      },
-      {
-        q: 'Is DocuZenith HIPAA and GDPR compliant for sensitive legal and medical documents?',
-        a: 'Yes. Because zero bytes of document data leave your device or enter cloud pipelines, DocuZenith inherently complies with strict confidentiality regulations, NDAs, GDPR, and HIPAA data residency rules.'
-      },
-      {
-        q: 'Can I merge large PDFs without file size limits?',
-        a: 'Yes! Because processing happens in your browser’s local RAM, there are no artificial file size limits, paywalls, or rate throttles.'
-      }
-    ]
-  },
-  {
-    id: 'compress-pdf',
-    title: 'Compress PDF Online - Reduce File Size Locally Without Uploading',
-    h1: 'Compress PDF Files Locally Without Losing Readability',
-    sub: 'Downsample images, remove redundant document streams, and shrink PDF files directly on your machine.',
-    metaDesc: 'Compress PDF documents online in your browser. Reduce file size for email attachment without uploading to external servers. Fast, private, and free.',
-    badge: 'Private PDF Compressor',
-    gradient: 'from-emerald-600 to-teal-600',
-    faqs: [
-      {
-        q: 'How does client-side PDF compression work?',
-        a: 'DocuZenith parses the PDF structure directly in your browser using WebAssembly, re-encoding uncompressed image objects and pruning redundant metadata without sending any data over the internet.'
-      },
-      {
-        q: 'Will my text or formatting get blurry?',
-        a: 'No. Vector text, typography fonts, forms, and digital signatures remain crisp and sharp. Only embedded raster images are intelligently optimized.'
-      }
-    ]
-  },
-  {
-    id: 'split-pdf',
-    title: 'Split PDF Online - Extract Pages Privately in Browser',
-    h1: 'Split PDF Pages & Extract Ranges with Zero Cloud Storage',
-    sub: 'Extract single pages or custom page ranges into standalone PDF files instantly and privately.',
-    metaDesc: 'Split PDF pages online for free. Extract individual pages or custom ranges with complete privacy. No server uploads, no email required.',
-    badge: 'In-Browser PDF Splitter',
-    gradient: 'from-violet-600 to-purple-600',
-    faqs: [
-      {
-        q: 'Can I extract multiple non-consecutive page ranges?',
-        a: 'Yes. You can specify custom page ranges such as 1-3, 5, 8-12 and extract them into individual files or a single combined extract.'
-      }
-    ]
-  },
-  {
-    id: 'pdf-to-word',
-    title: 'Convert PDF to Word (DOCX) Online - Free & Confidential',
-    h1: 'Convert PDF to Editable Microsoft Word (.docx)',
-    sub: 'Reconstruct paragraphs, text blocks, and tables from PDF into an editable Word document right inside your browser.',
-    metaDesc: 'Convert PDF to Word DOCX online with zero server uploads. Reconstruct text, tables, and paragraphs locally with DocuZenith.',
-    badge: 'Client-Side PDF to Word',
-    gradient: 'from-blue-600 to-cyan-600',
-    faqs: [
-      {
-        q: 'Does DocuZenith convert PDF to Word without uploading to a third-party server?',
-        a: 'Yes! The entire PDF text extraction and OpenXML (.docx) generation executes inside your browser using JavaScript and Web Workers.'
-      }
-    ]
-  },
-  {
-    id: 'sign-pdf',
-    title: 'Sign PDF Online Free - Draw & Place Signatures Locally',
-    h1: 'Draw, Type, & Place Signatures on Any PDF Document',
-    sub: 'Legally bind agreements, contracts, and NDA documents with interactive visual signatures that never leave your device.',
-    metaDesc: 'Sign PDF documents online for free. Draw or type signatures, place date stamps, and download signed agreements with zero server exposure.',
-    badge: 'Secure PDF Signer',
-    gradient: 'from-indigo-600 to-violet-600',
-    faqs: [
-      {
-        q: 'Is it safe to sign confidential contracts on DocuZenith?',
-        a: 'Yes, DocuZenith is safer than cloud signature tools because your signature graphics and contract contents are never stored on any remote cloud database.'
-      }
-    ]
-  },
-  {
-    id: 'redact-pdf',
-    title: 'Redact PDF Online - Permanently Black Out & Remove Sensitive Text',
-    h1: 'True PDF Redaction: Permanently Sanitize Sensitive Data',
-    sub: 'Irreversibly erase social security numbers, bank details, and confidential text directly in your browser.',
-    metaDesc: 'Redact PDF documents online safely. True redaction that permanently deletes underlying text streams and rasterizes sensitive zones.',
-    badge: 'Permanent PDF Redactor',
-    gradient: 'from-red-600 to-rose-600',
-    faqs: [
-      {
-        q: 'Is this true redaction or just a black box over the text?',
-        a: 'DocuZenith provides genuine redaction: the underlying vector text and glyph coordinates in the redacted bounding boxes are permanently stripped and burned into flattened pixels so data cannot be highlighted or copied.'
-      }
-    ]
-  },
-  {
-    id: 'ocr-pdf',
-    title: 'OCR PDF Online - Extract Text from Scanned Documents in Browser',
-    h1: 'Extract Searchable Text from Scanned PDFs with Local OCR',
-    sub: 'Client-side Optical Character Recognition powered by Tesseract.js WebAssembly. Zero cloud uploads.',
-    metaDesc: 'Extract text from scanned PDFs and images online using client-side OCR. Powered by WebAssembly and Tesseract. Zero server uploads.',
-    badge: 'Client-Side OCR',
-    gradient: 'from-amber-600 to-yellow-600',
-    faqs: [
-      {
-        q: 'How does client-side OCR run in the browser?',
-        a: 'DocuZenith runs the battle-tested Tesseract OCR engine compiled directly into WebAssembly. Your CPU processes the image locally.'
-      }
-    ]
-  },
-  {
-    id: 'protect-pdf',
-    title: 'Protect PDF Online - Encrypt PDF with AES Password Security',
-    h1: 'Password-Protect & Encrypt PDF Documents Locally',
-    sub: 'Add industrial-strength encryption and access passwords to sensitive PDFs before sharing.',
-    metaDesc: 'Encrypt and password protect PDF documents online in your browser. Standard AES encryption with zero server exposure.',
-    badge: 'AES PDF Protection',
-    gradient: 'from-slate-700 to-neutral-900',
-    faqs: [
-      {
-        q: 'Can anyone on the internet see the password I choose?',
-        a: 'No. The password never travels across the network because encryption is computed entirely inside your browser session.'
-      }
-    ]
+// Read tools from tools.ts
+const toolsPath = path.resolve(__dirname, '../src/data/tools.ts');
+const toolsCode = fs.readFileSync(toolsPath, 'utf8');
+
+const toolBlocks = toolsCode.split(/\{\s*id:\s*'/).slice(1);
+const allTools = [];
+
+for (const b of toolBlocks) {
+  const id = b.split("'")[0];
+  const title = (b.match(/title:\s*'([^']+)'/) || [])[1];
+  const desc = (b.match(/shortDesc:\s*'([^']+)'/) || [])[1];
+  const category = (b.match(/category:\s*'([^']+)'/) || [])[1];
+  if (id && title && desc && id !== 'all' && id !== 'organize' && id !== 'optimize' && id !== 'convert-from' && id !== 'convert-to' && id !== 'edit-security' && id !== 'advanced') {
+    allTools.push({ id, title, desc, category });
   }
-];
+}
 
 const outDir = path.resolve(__dirname, '../public/tools');
 if (!fs.existsSync(outDir)) {
   fs.mkdirSync(outDir, { recursive: true });
 }
 
-for (const p of PAGES) {
-  const faqSchema = {
-    '@context': 'https://schema.org',
-    '@type': 'FAQPage',
-    mainEntity: p.faqs.map((f) => ({
-      '@type': 'Question',
-      name: f.q,
-      acceptedAnswer: {
-        '@type': 'Answer',
-        text: f.a
-      }
-    }))
-  };
+for (const tool of allTools) {
+  const metaDesc = `${tool.title} online for free. ${tool.desc} 100% in-browser processing with zero server uploads, complete privacy, and offline support on DocuZenith.`;
+  const pageTitle = `${tool.title} Online Free - 100% Client-Side & Private | DocuZenith`;
+
+  const faqs = [
+    {
+      q: `Are my files uploaded to any server when using ${tool.title}?`,
+      a: 'No. DocuZenith operates 100% in your browser using local CPU and WebAssembly. Your documents never touch external servers or cloud storage.'
+    },
+    {
+      q: `Is ${tool.title} free and unlimited?`,
+      a: 'Yes, DocuZenith is completely free with no subscriptions, file size paywalls, or daily task limits.'
+    },
+    {
+      q: 'Does it work offline without internet?',
+      a: 'Yes! Once cached in your browser via our Progressive Web App (PWA) Service Worker, you can use DocuZenith even without an internet connection.'
+    }
+  ];
 
   const appSchema = {
     '@context': 'https://schema.org',
     '@type': 'WebApplication',
-    name: `DocuZenith ${p.h1}`,
-    url: `${BASE_URL}/tools/${p.id}.html`,
-    description: p.metaDesc,
+    name: `DocuZenith ${tool.title}`,
+    url: `${BASE_URL}/tools/${tool.id}.html`,
+    description: metaDesc,
     applicationCategory: 'BusinessApplication',
     operatingSystem: 'All modern browsers',
     offers: {
@@ -176,28 +63,41 @@ for (const p of PAGES) {
     }
   };
 
+  const faqSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: faqs.map((f) => ({
+      '@type': 'Question',
+      name: f.q,
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: f.a
+      }
+    }))
+  };
+
   const html = `<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>${p.title} | DocuZenith</title>
-    <meta name="description" content="${p.metaDesc}" />
+    <title>${pageTitle}</title>
+    <meta name="description" content="${metaDesc}" />
     <meta name="google-site-verification" content="-G6xpn8iM-npkMqzVXm1uZiWUgkJHOonIzqnLGhmy80" />
-    <link rel="canonical" href="${BASE_URL}/tools/${p.id}.html" />
+    <link rel="canonical" href="${BASE_URL}/tools/${tool.id}.html" />
     <link rel="icon" type="image/svg+xml" href="../favicon.svg" />
 
     <!-- Open Graph -->
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="${BASE_URL}/tools/${p.id}.html" />
-    <meta property="og:title" content="${p.title}" />
-    <meta property="og:description" content="${p.metaDesc}" />
+    <meta property="og:url" content="${BASE_URL}/tools/${tool.id}.html" />
+    <meta property="og:title" content="${pageTitle}" />
+    <meta property="og:description" content="${metaDesc}" />
     <meta property="og:site_name" content="DocuZenith" />
 
     <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="${p.title}" />
-    <meta name="twitter:description" content="${p.metaDesc}" />
+    <meta name="twitter:title" content="${pageTitle}" />
+    <meta name="twitter:description" content="${metaDesc}" />
 
     <!-- Structured Data Schema -->
     <script type="application/ld+json">
@@ -354,15 +254,15 @@ for (const p of PAGES) {
     </header>
 
     <main class="hero-section">
-      <div class="badge">🔒 ${p.badge}</div>
-      <h1>${p.h1}</h1>
-      <p class="subhead">${p.sub}</p>
+      <div class="badge">🔒 100% Client-Side ${tool.title}</div>
+      <h1>${tool.title} Online Free & Secure</h1>
+      <p class="subhead">${tool.desc}</p>
 
       <div class="cta-card">
         <div style="font-size: 2.5rem; margin-bottom: 1rem;">📄</div>
-        <h2 style="font-size: 1.25rem; margin-bottom: 0.5rem;">Ready to process your document privately?</h2>
+        <h2 style="font-size: 1.25rem; margin-bottom: 0.5rem;">Process your document privately</h2>
         <p style="font-size: 0.875rem; color: #64748b; margin-bottom: 1.5rem;">Processed locally via in-memory WebAssembly. Zero data touches any cloud server.</p>
-        <a href="${BASE_URL}/#/${p.id}" class="cta-btn">Open ${p.badge}</a>
+        <a href="${BASE_URL}/#/${tool.id}" class="cta-btn">Open ${tool.title} Tool</a>
       </div>
 
       <div class="privacy-strip">
@@ -375,7 +275,7 @@ for (const p of PAGES) {
 
     <section class="faq-section">
       <h2 style="font-size: 1.5rem; font-weight: 800; margin-bottom: 1.5rem; text-align: center;">Frequently Asked Questions</h2>
-      ${p.faqs
+      ${faqs
         .map(
           (f) => `
       <div class="faq-item">
@@ -388,7 +288,7 @@ for (const p of PAGES) {
   </body>
 </html>`;
 
-  const dest = path.resolve(outDir, `${p.id}.html`);
-  fs.writeFileSync(dest, html, 'utf8');
-  console.log(`Generated static landing page: ${dest}`);
+  fs.writeFileSync(path.resolve(outDir, `${tool.id}.html`), html, 'utf8');
 }
+
+console.log(`Generated static landing pages for all ${allTools.length} tools at ${outDir}`);
