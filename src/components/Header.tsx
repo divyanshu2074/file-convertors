@@ -8,6 +8,9 @@ interface HeaderProps {
   selectedCategory: string;
   setSelectedCategory: (category: any) => void;
   categories: readonly { id: string; label: string }[];
+  currentView?: 'tools' | 'blog';
+  onNavigateBlog?: () => void;
+  onNavigateHome?: () => void;
   onOpenChangelog?: () => void;
   onOpenContact?: () => void;
 }
@@ -18,6 +21,9 @@ export const Header: React.FC<HeaderProps> = ({
   selectedCategory,
   setSelectedCategory,
   categories,
+  currentView = 'tools',
+  onNavigateBlog,
+  onNavigateHome,
   onOpenChangelog,
   onOpenContact,
 }) => {
@@ -26,13 +32,18 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 gap-4">
           {/* Logo & Brand */}
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-rose-500 via-red-500 to-amber-500 flex items-center justify-center text-white shadow-md shadow-rose-500/20">
+          <div
+            onClick={onNavigateHome}
+            className="flex items-center gap-3 cursor-pointer group"
+          >
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 via-violet-600 to-purple-600 flex items-center justify-center text-white shadow-md shadow-indigo-600/20 group-hover:scale-105 transition-transform">
               <FileSpreadsheet className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-bold text-xl tracking-tight text-neutral-900">LocalPDF</span>
+                <span className="font-extrabold text-xl tracking-tight text-neutral-900 group-hover:text-indigo-600 transition-colors">
+                  DocuZenith
+                </span>
                 <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200/60">
                   <ShieldCheck className="w-3.5 h-3.5" />
                   100% Client-Side
@@ -56,6 +67,21 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Right Links */}
           <div className="flex items-center gap-2 sm:gap-3">
+            {/* Blog Hub Link */}
+            {onNavigateBlog && (
+              <button
+                onClick={currentView === 'blog' ? onNavigateHome : onNavigateBlog}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer shadow-2xs ${
+                  currentView === 'blog'
+                    ? 'bg-neutral-900 text-white'
+                    : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200/60'
+                }`}
+                title={currentView === 'blog' ? 'Return to PDF Tools' : 'Open SEO & Tech Blog Guides'}
+              >
+                <span>{currentView === 'blog' ? 'All Tools' : 'Blog & Guides'}</span>
+              </button>
+            )}
+
             {/* Offline Cache: Hidden on mobile header to prevent crowding */}
             <div className="hidden sm:block">
               <OfflineCacheButton variant="compact" />

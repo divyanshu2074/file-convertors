@@ -5,11 +5,14 @@ import { WorkspaceModal } from './components/WorkspaceModal';
 import { RetroCliDashboard } from './components/RetroCliDashboard';
 import { OfflineCacheButton } from './components/OfflineCacheButton';
 import { ContactModal } from './components/ContactModal';
+import { BlogHub } from './components/blog/BlogHub';
+import { BlogPostView } from './components/blog/BlogPostView';
 import { getLastServerUpdateTime } from './lib/offlineManager';
 import { trackPageView, trackToolOpen } from './lib/analytics';
 import { TOOLS, CATEGORIES } from './data/tools';
+import { BLOG_POSTS } from './data/blogs';
 import { ToolDef } from './types';
-import { ShieldCheck, Cpu, Zap, Lock, Sparkles, Terminal, Wifi, WifiOff, Clock, User } from 'lucide-react';
+import { ShieldCheck, Cpu, Zap, Lock, Sparkles, Terminal, Wifi, WifiOff, Clock, User, BookOpen } from 'lucide-react';
 
 export function App() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -18,9 +21,61 @@ export function App() {
   const [showChangelog, setShowChangelog] = useState(false);
   const [showContact, setShowContact] = useState(false);
 
+  // Router view state: 'tools' | 'blog' | 'blog-post'
+  const [currentView, setCurrentView] = useState<'tools' | 'blog' | 'blog-post'>('tools');
+  const [activeBlogSlug, setActiveBlogSlug] = useState<string | null>(null);
+
   // Online / Offline & Server update status
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [lastServerUpdate, setLastServerUpdate] = useState('');
+
+  // Handle client-side hash routing for zero-server SPA (#blog and #blog/:slug)
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash;
+      if (hash.startsWith('#/blog/')) {
+        const slug = hash.replace('#/blog/', '').trim();
+        setActiveBlogSlug(slug);
+        setCurrentView('blog-post');
+      } else if (hash === '#/blog' || hash === '#blog') {
+        setCurrentView('blog');
+        setActiveBlogSlug(null);
+      } else {
+        setCurrentView('tools');
+        setActiveBlogSlug(null);
+      }
+    };
+
+    handleHashChange();
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
+  const navigateToBlog = () => {
+    window.location.hash = '#/blog';
+  };
+
+  const navigateToHome = () => {
+    window.location.hash = '';
+    setCurrentView('tools');
+  };
+
+  const navigateToPost = (slug: string) => {
+    window.location.hash = `#/blog/${slug}`;
+  };
+
+  const handleOpenToolById = (toolId: string) => {
+    if (toolId === 'all') {
+      navigateToHome();
+      return;
+    }
+    const found = TOOLS.find((t) => t.id === toolId);
+    if (found) {
+      handleSelectTool(found);
+    } else {
+      navigateToHome();
+    }
+  };
 
   useEffect(() => {
     setLastServerUpdate(getLastServerUpdateTime());
@@ -45,6 +100,11 @@ export function App() {
     setActiveTool(tool);
   };
 
+  const activeBlogPost = useMemo(() => {
+    if (!activeBlogSlug) return null;
+    return BLOG_POSTS.find((p) => p.slug === activeBlogSlug) || null;
+  }, [activeBlogSlug]);
+
   // Filter tools based on category and search query
   const filteredTools = useMemo(() => {
     return TOOLS.filter((tool) => {
@@ -68,83 +128,103 @@ export function App() {
         selectedCategory={selectedCategory}
         setSelectedCategory={setSelectedCategory}
         categories={CATEGORIES}
+        currentView={currentView === 'tools' ? 'tools' : 'blog'}
+        onNavigateBlog={navigateToBlog}
+        onNavigateHome={navigateToHome}
         onOpenChangelog={() => setShowChangelog(true)}
         onOpenContact={() => setShowContact(true)}
       />
 
-      {/* Main Content */}
+      {/* Main Content Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-10">
-        {/* Minimal Hero */}
-        {!searchQuery && selectedCategory === 'all' && (
-          <div className="text-center space-y-4 max-w-2xl mx-auto pt-4 pb-2">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-neutral-100 text-neutral-700 border border-neutral-200 shadow-2xs">
-              <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-              100% In-Browser Document Processing
-            </div>
-            <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-neutral-950 leading-tight">
-              Every PDF tool you need.{' '}
-              <span className="text-neutral-400 font-normal">Zero server uploads.</span>
-            </h1>
-            <p className="text-sm sm:text-base text-neutral-600 leading-relaxed max-w-xl mx-auto">
-              Merge, edit, split, convert, sign, and redact documents directly on your machine. Fast, private, and secure.
-            </p>
+        {currentView === 'blog' ? (
+          <BlogHub
+            posts={BLOG_POSTS}
+            onSelectPost={navigateToPost}
+            onNavigateHome={navigateToHome}
+            onOpenToolModal={handleOpenToolById}
+          />
+        ) : currentView === 'blog-post' && activeBlogPost ? (
+          <BlogPostView
+            post={activeBlogPost}
+            onBackToBlog={navigateToBlog}
+            onOpenToolModal={handleOpenToolById}
+          />
+        ) : (
+          <>
+            {/* Minimal Hero */}
+            {!searchQuery && selectedCategory === 'all' && (
+              <div className="text-center space-y-4 max-w-2xl mx-auto pt-4 pb-2">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-neutral-100 text-neutral-700 border border-neutral-200 shadow-2xs">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                  100% In-Browser Document Processing
+                </div>
+                <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-neutral-950 leading-tight">
+                  Every PDF tool you need.{' '}
+                  <span className="text-neutral-400 font-normal">Zero server uploads.</span>
+                </h1>
+                <p className="text-sm sm:text-base text-neutral-600 leading-relaxed max-w-xl mx-auto">
+                  Merge, edit, split, convert, sign, and redact documents directly on your machine. Fast, private, and secure.
+                </p>
 
-            {/* Privacy Feature Badges */}
-            <div className="flex flex-wrap items-center justify-center gap-4 pt-3 text-xs text-neutral-500">
-              <span className="flex items-center gap-1.5">
-                <Lock className="w-3.5 h-3.5 text-emerald-600" /> Complete Data Privacy
-              </span>
-              <span className="flex items-center gap-1.5">
-                <Cpu className="w-3.5 h-3.5 text-indigo-600" /> WebAssembly & Web Workers
-              </span>
-              <span className="flex items-center gap-1.5">
-                <Zap className="w-3.5 h-3.5 text-amber-500" /> Instant In-Memory Speeds
-              </span>
-            </div>
-          </div>
-        )}
-
-        {/* Offline Cache Banner */}
-        <OfflineCacheButton variant="full" />
-
-        {/* Tools Section */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between text-xs font-semibold text-neutral-500 uppercase tracking-wider px-1">
-            <span>
-              Available Tools ({filteredTools.length} of {TOOLS.length})
-            </span>
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="text-neutral-700 hover:text-neutral-950 underline cursor-pointer"
-              >
-                Clear search
-              </button>
+                {/* Privacy Feature Badges */}
+                <div className="flex flex-wrap items-center justify-center gap-4 pt-3 text-xs text-neutral-500">
+                  <span className="flex items-center gap-1.5">
+                    <Lock className="w-3.5 h-3.5 text-emerald-600" /> Complete Data Privacy
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <Cpu className="w-3.5 h-3.5 text-indigo-600" /> WebAssembly & Web Workers
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <Zap className="w-3.5 h-3.5 text-amber-500" /> Instant In-Memory Speeds
+                  </span>
+                </div>
+              </div>
             )}
-          </div>
 
-          {filteredTools.length === 0 ? (
-            <div className="text-center py-16 bg-white rounded-3xl border border-neutral-200/80 p-8 space-y-3">
-              <p className="text-sm font-semibold text-neutral-800">No matching tools found for "{searchQuery}"</p>
-              <p className="text-xs text-neutral-500">Try searching for "word", "merge", "sign", or clear filters.</p>
-              <button
-                onClick={() => {
-                  setSearchQuery('');
-                  setSelectedCategory('all');
-                }}
-                className="px-4 py-2 rounded-xl text-xs font-semibold bg-neutral-900 text-white"
-              >
-                Reset Filters
-              </button>
+            {/* Offline Cache Banner */}
+            <OfflineCacheButton variant="full" />
+
+            {/* Tools Section */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between text-xs font-semibold text-neutral-500 uppercase tracking-wider px-1">
+                <span>
+                  Available Tools ({filteredTools.length} of {TOOLS.length})
+                </span>
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="text-neutral-700 hover:text-neutral-950 underline cursor-pointer"
+                  >
+                    Clear search
+                  </button>
+                )}
+              </div>
+
+              {filteredTools.length === 0 ? (
+                <div className="text-center py-16 bg-white rounded-3xl border border-neutral-200/80 p-8 space-y-3">
+                  <p className="text-sm font-semibold text-neutral-800">No matching tools found for "{searchQuery}"</p>
+                  <p className="text-xs text-neutral-500">Try searching for "word", "merge", "sign", or clear filters.</p>
+                  <button
+                    onClick={() => {
+                      setSearchQuery('');
+                      setSelectedCategory('all');
+                    }}
+                    className="px-4 py-2 rounded-xl text-xs font-semibold bg-neutral-900 text-white cursor-pointer"
+                  >
+                    Reset Filters
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {filteredTools.map((tool) => (
+                    <ToolCard key={tool.id} tool={tool} onSelect={handleSelectTool} />
+                  ))}
+                </div>
+              )}
             </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {filteredTools.map((tool) => (
-                <ToolCard key={tool.id} tool={tool} onSelect={handleSelectTool} />
-              ))}
-            </div>
-          )}
-        </div>
+          </>
+        )}
       </main>
 
       {/* Enhanced Footer with Status and Developer Information */}
@@ -152,9 +232,16 @@ export function App() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-5">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="flex flex-wrap items-center gap-3">
-              <span className="font-semibold text-neutral-800">LocalPDF</span>
+              <span className="font-extrabold text-neutral-900">DocuZenith</span>
               <span>•</span>
-              <span>All document operations run 100% locally in your web browser.</span>
+              <span>The Peak of Secure In-Browser Document Productivity.</span>
+              <span>•</span>
+              <button
+                onClick={navigateToBlog}
+                className="text-indigo-600 hover:underline cursor-pointer font-medium"
+              >
+                SEO & Architecture Blog
+              </button>
             </div>
 
             {/* Live Status Indicators */}

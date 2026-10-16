@@ -96,7 +96,7 @@ export const ContactModal: React.FC<ContactModalProps> = ({ onClose }) => {
                 </span>
               </div>
               <p className="text-xs text-neutral-300">
-                Full-Stack & In-Browser Systems Architect • LocalPDF Creator
+                Full-Stack & In-Browser Systems Architect • DocuZenith Creator
               </p>
               <div className="flex items-center gap-2 pt-1 text-xs text-neutral-400">
                 <Mail className="w-3.5 h-3.5 text-neutral-400" />
