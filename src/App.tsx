@@ -2,7 +2,6 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Header } from './components/Header';
 import { ToolCard } from './components/ToolCard';
 import { WorkspaceModal } from './components/WorkspaceModal';
-import { RetroCliDashboard } from './components/RetroCliDashboard';
 import { OfflineCacheButton } from './components/OfflineCacheButton';
 import { ContactModal } from './components/ContactModal';
 import { BlogHub } from './components/blog/BlogHub';
@@ -12,13 +11,12 @@ import { trackPageView, trackToolOpen } from './lib/analytics';
 import { TOOLS, CATEGORIES } from './data/tools';
 import { BLOG_POSTS } from './data/blogs';
 import { ToolDef } from './types';
-import { ShieldCheck, Cpu, Zap, Lock, Sparkles, Terminal, Wifi, WifiOff, Clock, User, BookOpen } from 'lucide-react';
+import { ShieldCheck, Cpu, Zap, Lock, Sparkles, Wifi, WifiOff, Clock, User, BookOpen } from 'lucide-react';
 
 export function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [activeTool, setActiveTool] = useState<ToolDef | null>(null);
-  const [showChangelog, setShowChangelog] = useState(false);
   const [showContact, setShowContact] = useState(false);
 
   // Router view state: 'tools' | 'blog' | 'blog-post'
@@ -131,7 +129,6 @@ export function App() {
         currentView={currentView === 'tools' ? 'tools' : 'blog'}
         onNavigateBlog={navigateToBlog}
         onNavigateHome={navigateToHome}
-        onOpenChangelog={() => setShowChangelog(true)}
         onOpenContact={() => setShowContact(true)}
       />
 
@@ -305,25 +302,12 @@ export function App() {
                 LinkedIn
               </a>
             </div>
-
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => setShowChangelog(true)}
-                className="inline-flex items-center gap-1.5 text-neutral-600 hover:text-emerald-700 font-medium transition-colors cursor-pointer"
-              >
-                <Terminal className="w-3.5 h-3.5 text-emerald-600" />
-                <span>Live Changelog (CLI Stream)</span>
-              </button>
-            </div>
           </div>
         </div>
       </footer>
 
       {/* Active Workspace Modal */}
       {activeTool && <WorkspaceModal tool={activeTool} onClose={() => setActiveTool(null)} />}
-
-      {/* Retro CLI Live Changelog Dashboard Modal */}
-      {showChangelog && <RetroCliDashboard onClose={() => setShowChangelog(false)} />}
 
       {/* Contact Developer & Inquiries Modal */}
       {showContact && <ContactModal onClose={() => setShowContact(false)} />}

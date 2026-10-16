@@ -11,7 +11,6 @@ interface HeaderProps {
   currentView?: 'tools' | 'blog';
   onNavigateBlog?: () => void;
   onNavigateHome?: () => void;
-  onOpenChangelog?: () => void;
   onOpenContact?: () => void;
 }
 
@@ -24,7 +23,6 @@ export const Header: React.FC<HeaderProps> = ({
   currentView = 'tools',
   onNavigateBlog,
   onNavigateHome,
-  onOpenChangelog,
   onOpenContact,
 }) => {
   return (
@@ -94,16 +92,6 @@ export const Header: React.FC<HeaderProps> = ({
                 title="Contact Developer & Support"
               >
                 <span>Contact</span>
-              </button>
-            )}
-
-            {onOpenChangelog && (
-              <button
-                onClick={onOpenChangelog}
-                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-mono font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition-colors border border-emerald-200/60 cursor-pointer"
-                title="Open live retro CLI changelog"
-              >
-                <span>CLI_LOG</span>
               </button>
             )}
           </div>
