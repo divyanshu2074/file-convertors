@@ -1,19 +1,43 @@
 import React, { useEffect } from 'react';
 import { BlogPost } from '../../types/blog';
+import { BLOG_POSTS } from '../../data/blogs';
 import { ArrowLeft, Clock, Calendar, User, ShieldCheck, Zap, ArrowRight, Share2, Check } from 'lucide-react';
 
 interface BlogPostViewProps {
-  post: BlogPost;
+  post?: BlogPost | null;
+  slug?: string | null;
   onBackToBlog: () => void;
   onOpenToolModal?: (toolId: string) => void;
 }
 
 export const BlogPostView: React.FC<BlogPostViewProps> = ({
-  post,
+  post: propPost,
+  slug,
   onBackToBlog,
   onOpenToolModal,
 }) => {
   const [copied, setCopied] = React.useState(false);
+
+  const post = React.useMemo(() => {
+    if (propPost) return propPost;
+    if (slug) return BLOG_POSTS.find((p) => p.slug === slug) || null;
+    return null;
+  }, [propPost, slug]);
+
+  if (!post) {
+    return (
+      <div className="text-center py-20 bg-white rounded-3xl border border-neutral-200 p-8 space-y-4">
+        <h2 className="text-xl font-bold text-neutral-900">Article Not Found</h2>
+        <p className="text-sm text-neutral-500">The requested article could not be located.</p>
+        <button
+          onClick={onBackToBlog}
+          className="px-4 py-2 bg-neutral-900 text-white rounded-xl text-xs font-semibold cursor-pointer"
+        >
+          Return to Blog Hub
+        </button>
+      </div>
+    );
+  }
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });

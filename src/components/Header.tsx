@@ -56,6 +56,7 @@ export const Header: React.FC<HeaderProps> = ({
             <Search className="w-4 h-4 text-neutral-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
+              aria-label="Search all document tools"
               placeholder="Search all 28 tools (e.g. merge, word, sign, ocr, split)..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -103,6 +104,7 @@ export const Header: React.FC<HeaderProps> = ({
             <Search className="w-4 h-4 text-neutral-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
+              aria-label="Search document tools"
               placeholder="Search tools..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}

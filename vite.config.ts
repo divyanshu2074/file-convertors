@@ -15,6 +15,19 @@ export default defineConfig({
   },
   build: {
     chunkSizeWarningLimit: 1600,
+    modulePreload: {
+      resolveDependencies: (_filename, deps) => {
+        return deps.filter(
+          (dep) =>
+            !dep.includes('vendor-office') &&
+            !dep.includes('vendor-pdf') &&
+            !dep.includes('vendor-ocr') &&
+            !dep.includes('GenericPdfWorkspace') &&
+            !dep.includes('OcrWorkspace') &&
+            !dep.includes('blogs')
+        );
+      },
+    },
     rollupOptions: {
       output: {
         manualChunks(id) {

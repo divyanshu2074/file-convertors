@@ -1,19 +1,27 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { ToolDef, UploadedFile } from '../types';
 import { DropZone } from './DropZone';
 import { IconResolver } from './IconResolver';
-import { X, ArrowLeft, ShieldCheck, Sparkles } from 'lucide-react';
+import { X, ArrowLeft, ShieldCheck, Sparkles, Loader2 } from 'lucide-react';
 import { setActiveTrackingTool } from '../lib/analytics';
-import { OrganizeWorkspace } from './workspaces/OrganizeWorkspace';
-import { SignWorkspace } from './workspaces/SignWorkspace';
-import { EditWorkspace } from './workspaces/EditWorkspace';
-import { RedactWorkspace } from './workspaces/RedactWorkspace';
-import { CompareWorkspace } from './workspaces/CompareWorkspace';
-import { ScanWorkspace } from './workspaces/ScanWorkspace';
-import { CropWorkspace } from './workspaces/CropWorkspace';
-import { FormsWorkspace } from './workspaces/FormsWorkspace';
-import { OcrWorkspace } from './workspaces/OcrWorkspace';
-import { GenericPdfWorkspace } from './workspaces/GenericPdfWorkspace';
+
+const OrganizeWorkspace = lazy(() => import('./workspaces/OrganizeWorkspace').then((m) => ({ default: m.OrganizeWorkspace })));
+const SignWorkspace = lazy(() => import('./workspaces/SignWorkspace').then((m) => ({ default: m.SignWorkspace })));
+const EditWorkspace = lazy(() => import('./workspaces/EditWorkspace').then((m) => ({ default: m.EditWorkspace })));
+const RedactWorkspace = lazy(() => import('./workspaces/RedactWorkspace').then((m) => ({ default: m.RedactWorkspace })));
+const CompareWorkspace = lazy(() => import('./workspaces/CompareWorkspace').then((m) => ({ default: m.CompareWorkspace })));
+const ScanWorkspace = lazy(() => import('./workspaces/ScanWorkspace').then((m) => ({ default: m.ScanWorkspace })));
+const CropWorkspace = lazy(() => import('./workspaces/CropWorkspace').then((m) => ({ default: m.CropWorkspace })));
+const FormsWorkspace = lazy(() => import('./workspaces/FormsWorkspace').then((m) => ({ default: m.FormsWorkspace })));
+const OcrWorkspace = lazy(() => import('./workspaces/OcrWorkspace').then((m) => ({ default: m.OcrWorkspace })));
+const GenericPdfWorkspace = lazy(() => import('./workspaces/GenericPdfWorkspace').then((m) => ({ default: m.GenericPdfWorkspace })));
+
+const WorkspaceFallback = () => (
+  <div className="flex flex-col items-center justify-center py-24 space-y-3 text-neutral-500">
+    <Loader2 className="w-8 h-8 animate-spin text-neutral-900" />
+    <p className="text-xs font-medium">Initializing secure client-side workspace engine...</p>
+  </div>
+);
 
 interface WorkspaceModalProps {
   tool: ToolDef;
@@ -111,95 +119,97 @@ export const WorkspaceModal: React.FC<WorkspaceModalProps> = ({ tool, onClose })
 
         {/* Modal Content */}
         <div className="p-3 sm:p-6 overflow-y-auto flex-1">
-          {/* If camera tool, render directly without dropzone */}
-          {isCameraTool ? (
-            <ScanWorkspace />
-          ) : !hasFiles && !isHtmlTool ? (
-            <div className="max-w-xl mx-auto py-3 sm:py-8">
-              <DropZone
-                acceptedFiles={tool.acceptedFiles}
-                multiple={tool.multiple}
-                files={files}
-                onFilesSelected={handleFilesSelected}
-                onRemoveFile={handleRemoveFile}
-                title={`Select file${tool.multiple ? 's' : ''} for ${tool.title}`}
-                subtitle={`Supports ${tool.acceptedFiles || 'all document types'}`}
-              />
-            </div>
-          ) : (
-            <div>
-              {/* Specialized Interactive Workspaces */}
-              {tool.id === 'organize-pdf' && files[0] && (
-                <OrganizeWorkspace
-                  pdfBuffer={files[0].arrayBuffer}
-                  fileName={files[0].name}
-                  onClose={onClose}
+          <Suspense fallback={<WorkspaceFallback />}>
+            {/* If camera tool, render directly without dropzone */}
+            {isCameraTool ? (
+              <ScanWorkspace />
+            ) : !hasFiles && !isHtmlTool ? (
+              <div className="max-w-xl mx-auto py-3 sm:py-8">
+                <DropZone
+                  acceptedFiles={tool.acceptedFiles}
+                  multiple={tool.multiple}
+                  files={files}
+                  onFilesSelected={handleFilesSelected}
+                  onRemoveFile={handleRemoveFile}
+                  title={`Select file${tool.multiple ? 's' : ''} for ${tool.title}`}
+                  subtitle={`Supports ${tool.acceptedFiles || 'all document types'}`}
                 />
-              )}
-
-              {tool.id === 'sign-pdf' && files[0] && (
-                <SignWorkspace
-                  pdfBuffer={files[0].arrayBuffer}
-                  fileName={files[0].name}
-                />
-              )}
-
-              {tool.id === 'edit-pdf' && files[0] && (
-                <EditWorkspace
-                  pdfBuffer={files[0].arrayBuffer}
-                  fileName={files[0].name}
-                />
-              )}
-
-              {tool.id === 'redact-pdf' && files[0] && (
-                <RedactWorkspace
-                  pdfBuffer={files[0].arrayBuffer}
-                  fileName={files[0].name}
-                />
-              )}
-
-              {tool.id === 'compare-pdf' && (
-                <CompareWorkspace files={files} />
-              )}
-
-              {tool.id === 'crop-pdf' && files[0] && (
-                <CropWorkspace
-                  pdfBuffer={files[0].arrayBuffer}
-                  fileName={files[0].name}
-                />
-              )}
-
-              {tool.id === 'pdf-forms' && files[0] && (
-                <FormsWorkspace
-                  pdfBuffer={files[0].arrayBuffer}
-                  fileName={files[0].name}
-                />
-              )}
-
-              {tool.id === 'ocr-pdf' && files[0] && (
-                <OcrWorkspace
-                  pdfBuffer={files[0].arrayBuffer}
-                  fileName={files[0].name}
-                />
-              )}
-
-              {/* Generic Workspace for remaining tools */}
-              {tool.id !== 'organize-pdf' &&
-                tool.id !== 'sign-pdf' &&
-                tool.id !== 'edit-pdf' &&
-                tool.id !== 'redact-pdf' &&
-                tool.id !== 'compare-pdf' &&
-                tool.id !== 'crop-pdf' &&
-                tool.id !== 'pdf-forms' &&
-                tool.id !== 'ocr-pdf' && (
-                  <GenericPdfWorkspace
-                    tool={tool}
-                    files={files}
-                    onFilesReorder={setFiles}
+              </div>
+            ) : (
+              <div>
+                {/* Specialized Interactive Workspaces */}
+                {tool.id === 'organize-pdf' && files[0] && (
+                  <OrganizeWorkspace
+                    pdfBuffer={files[0].arrayBuffer}
+                    fileName={files[0].name}
+                    onClose={onClose}
                   />
                 )}
-            </div>
-          )}
+
+                {tool.id === 'sign-pdf' && files[0] && (
+                  <SignWorkspace
+                    pdfBuffer={files[0].arrayBuffer}
+                    fileName={files[0].name}
+                  />
+                )}
+
+                {tool.id === 'edit-pdf' && files[0] && (
+                  <EditWorkspace
+                    pdfBuffer={files[0].arrayBuffer}
+                    fileName={files[0].name}
+                  />
+                )}
+
+                {tool.id === 'redact-pdf' && files[0] && (
+                  <RedactWorkspace
+                    pdfBuffer={files[0].arrayBuffer}
+                    fileName={files[0].name}
+                  />
+                )}
+
+                {tool.id === 'compare-pdf' && (
+                  <CompareWorkspace files={files} />
+                )}
+
+                {tool.id === 'crop-pdf' && files[0] && (
+                  <CropWorkspace
+                    pdfBuffer={files[0].arrayBuffer}
+                    fileName={files[0].name}
+                  />
+                )}
+
+                {tool.id === 'pdf-forms' && files[0] && (
+                  <FormsWorkspace
+                    pdfBuffer={files[0].arrayBuffer}
+                    fileName={files[0].name}
+                  />
+                )}
+
+                {tool.id === 'ocr-pdf' && files[0] && (
+                  <OcrWorkspace
+                    pdfBuffer={files[0].arrayBuffer}
+                    fileName={files[0].name}
+                  />
+                )}
+
+                {/* Generic Workspace for remaining tools */}
+                {tool.id !== 'organize-pdf' &&
+                  tool.id !== 'sign-pdf' &&
+                  tool.id !== 'edit-pdf' &&
+                  tool.id !== 'redact-pdf' &&
+                  tool.id !== 'compare-pdf' &&
+                  tool.id !== 'crop-pdf' &&
+                  tool.id !== 'pdf-forms' &&
+                  tool.id !== 'ocr-pdf' && (
+                    <GenericPdfWorkspace
+                      tool={tool}
+                      files={files}
+                      onFilesReorder={setFiles}
+                    />
+                  )}
+              </div>
+            )}
+          </Suspense>
         </div>
       </div>
     </div>

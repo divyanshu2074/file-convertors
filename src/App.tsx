@@ -1,17 +1,17 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, lazy, Suspense } from 'react';
 import { Header } from './components/Header';
 import { ToolCard } from './components/ToolCard';
-import { WorkspaceModal } from './components/WorkspaceModal';
 import { OfflineCacheButton } from './components/OfflineCacheButton';
-import { ContactModal } from './components/ContactModal';
-import { BlogHub } from './components/blog/BlogHub';
-import { BlogPostView } from './components/blog/BlogPostView';
 import { getLastServerUpdateTime } from './lib/offlineManager';
 import { trackPageView, trackToolOpen } from './lib/analytics';
 import { TOOLS, CATEGORIES } from './data/tools';
-import { BLOG_POSTS } from './data/blogs';
 import { ToolDef } from './types';
 import { ShieldCheck, Cpu, Zap, Lock, Sparkles, Wifi, WifiOff, Clock, User, BookOpen } from 'lucide-react';
+
+const WorkspaceModal = lazy(() => import('./components/WorkspaceModal').then((m) => ({ default: m.WorkspaceModal })));
+const ContactModal = lazy(() => import('./components/ContactModal').then((m) => ({ default: m.ContactModal })));
+const BlogHub = lazy(() => import('./components/blog/BlogHub').then((m) => ({ default: m.BlogHub })));
+const BlogPostView = lazy(() => import('./components/blog/BlogPostView').then((m) => ({ default: m.BlogPostView })));
 
 export function App() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -98,11 +98,6 @@ export function App() {
     setActiveTool(tool);
   };
 
-  const activeBlogPost = useMemo(() => {
-    if (!activeBlogSlug) return null;
-    return BLOG_POSTS.find((p) => p.slug === activeBlogSlug) || null;
-  }, [activeBlogSlug]);
-
   // Filter tools based on category and search query
   const filteredTools = useMemo(() => {
     return TOOLS.filter((tool) => {
@@ -135,18 +130,33 @@ export function App() {
       {/* Main Content Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-10">
         {currentView === 'blog' ? (
-          <BlogHub
-            posts={BLOG_POSTS}
-            onSelectPost={navigateToPost}
-            onNavigateHome={navigateToHome}
-            onOpenToolModal={handleOpenToolById}
-          />
-        ) : currentView === 'blog-post' && activeBlogPost ? (
-          <BlogPostView
-            post={activeBlogPost}
-            onBackToBlog={navigateToBlog}
-            onOpenToolModal={handleOpenToolById}
-          />
+          <Suspense
+            fallback={
+              <div className="flex justify-center items-center py-24">
+                <div className="w-8 h-8 border-2 border-neutral-900 border-t-transparent rounded-full animate-spin" />
+              </div>
+            }
+          >
+            <BlogHub
+              onSelectPost={navigateToPost}
+              onNavigateHome={navigateToHome}
+              onOpenToolModal={handleOpenToolById}
+            />
+          </Suspense>
+        ) : currentView === 'blog-post' ? (
+          <Suspense
+            fallback={
+              <div className="flex justify-center items-center py-24">
+                <div className="w-8 h-8 border-2 border-neutral-900 border-t-transparent rounded-full animate-spin" />
+              </div>
+            }
+          >
+            <BlogPostView
+              slug={activeBlogSlug}
+              onBackToBlog={navigateToBlog}
+              onOpenToolModal={handleOpenToolById}
+            />
+          </Suspense>
         ) : (
           <>
             {/* Minimal Hero */}
@@ -307,10 +317,18 @@ export function App() {
       </footer>
 
       {/* Active Workspace Modal */}
-      {activeTool && <WorkspaceModal tool={activeTool} onClose={() => setActiveTool(null)} />}
+      {activeTool && (
+        <Suspense fallback={null}>
+          <WorkspaceModal tool={activeTool} onClose={() => setActiveTool(null)} />
+        </Suspense>
+      )}
 
       {/* Contact Developer & Inquiries Modal */}
-      {showContact && <ContactModal onClose={() => setShowContact(false)} />}
+      {showContact && (
+        <Suspense fallback={null}>
+          <ContactModal onClose={() => setShowContact(false)} />
+        </Suspense>
+      )}
     </div>
   );
 }

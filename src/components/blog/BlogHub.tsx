@@ -1,19 +1,21 @@
 import React, { useState, useMemo } from 'react';
 import { BlogPost } from '../../types/blog';
+import { BLOG_POSTS } from '../../data/blogs';
 import { Search, BookOpen, Clock, Calendar, ArrowRight, ShieldCheck, Tag } from 'lucide-react';
 
 interface BlogHubProps {
-  posts: BlogPost[];
+  posts?: BlogPost[];
   onSelectPost: (slug: string) => void;
   onNavigateHome: () => void;
   onOpenToolModal?: (toolId: string) => void;
 }
 
 export const BlogHub: React.FC<BlogHubProps> = ({
-  posts,
+  posts: propPosts,
   onSelectPost,
   onNavigateHome,
 }) => {
+  const posts = propPosts || BLOG_POSTS;
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
