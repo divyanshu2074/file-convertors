@@ -6,7 +6,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build:seo": "node scripts/generate-sitemap.js && node scripts/generate-landing-pages.js",
+    "seo:ping": "node scripts/ping-indexnow.js",
+    "build": "node scripts/generate-sitemap.js && node scripts/generate-landing-pages.js && tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview"
   },
