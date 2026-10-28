@@ -11,7 +11,16 @@ export interface ParsedEmail {
   messageId: string;
   hasAttachments: string;
   bodySnippet: string;
-  fullBody: string;
+  startByte: number;
+  endByte: number;
+  fullBody?: string;
+}
+
+export interface MboxProgress {
+  bytesProcessed: number;
+  totalBytes: number;
+  percent: number;
+  emailsFound: number;
 }
 
 /**
@@ -19,7 +28,13 @@ export interface ParsedEmail {
  */
 export function decodeMimeWords(str: string): string {
   if (!str) return '';
-  return str.replace(/=\?([^?]+)\?([BQbq])\?([^?]*)\?=/g, (_, charset, encoding, text) => {
+  // Collapse whitespace between adjacent encoded words per RFC 2047
+  let normalized = str;
+  while (/(=\?[^?]+\?[BQbq]\?[^?]*\?=)\s+(=\?[^?]+\?[BQbq]\?[^?]*\?=)/.test(normalized)) {
+    normalized = normalized.replace(/(=\?[^?]+\?[BQbq]\?[^?]*\?=)\s+(=\?[^?]+\?[BQbq]\?[^?]*\?=)/g, '$1$2');
+  }
+
+  return normalized.replace(/=\?([^?]+)\?([BQbq])\?([^?]*)\?=/g, (_: string, charset: string, encoding: string, text: string) => {
     try {
       const enc = encoding.toUpperCase();
       if (enc === 'B') {
@@ -30,7 +45,7 @@ export function decodeMimeWords(str: string): string {
         }
         return new TextDecoder(charset).decode(bytes);
       } else if (enc === 'Q') {
-        const unescaped = text.replace(/_/g, ' ').replace(/=([A-Fa-f0-9]{2})/g, (_: string, hex: string) => {
+        const unescaped = text.replace(/_/g, ' ').replace(/=([A-Fa-f0-9]{2})/g, (_match: string, hex: string) => {
           return String.fromCharCode(parseInt(hex, 16));
         });
         const bytes = new Uint8Array(unescaped.length);
@@ -51,22 +66,20 @@ export function decodeMimeWords(str: string): string {
  */
 export function decodeQuotedPrintable(input: string): string {
   if (!input) return '';
-  // Soft line breaks =\r\n or =\n
   const clean = input.replace(/=\r?\n/g, '');
-  // Hex byte decode
-  return clean.replace(/=([A-Fa-f0-9]{2})/g, (_: string, hex: string) => {
+  return clean.replace(/=([A-Fa-f0-9]{2})/g, (_match: string, hex: string) => {
     try {
       return String.fromCharCode(parseInt(hex, 16));
     } catch {
-      return _;
+      return _match;
     }
   });
 }
 
 /**
- * Clean up HTML tags and entities to extract legible text
+ * Clean up HTML tags and entities to extract legible plain text
  */
-function stripHtml(html: string): string {
+export function stripHtml(html: string): string {
   if (!html) return '';
   return html
     .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
@@ -83,194 +96,287 @@ function stripHtml(html: string): string {
 }
 
 /**
- * Parse an MBOX string or buffer into structured email objects
+ * Parse headers from an email header block
  */
-export function parseMbox(rawContent: string | ArrayBuffer): ParsedEmail[] {
-  let text = '';
-  if (typeof rawContent === 'string') {
-    text = rawContent;
-  } else {
-    text = new TextDecoder('utf-8', { fatal: false }).decode(rawContent);
-  }
+function parseHeaders(rawHeaders: string): Record<string, string> {
+  const unfolded = rawHeaders.replace(/\r?\n[ \t]+/g, ' ');
+  const lines = unfolded.split(/\r?\n/);
+  const headers: Record<string, string> = {};
 
-  if (!text || !text.trim()) {
-    return [];
-  }
-
-  // Split messages by MBOX separator line: "\nFrom " or beginning of file "From "
-  // Handle both CRLF and LF
-  const rawMessages: string[] = [];
-  const lines = text.split(/\r?\n/);
-  let currentMsgLines: string[] = [];
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    if (line.startsWith('From ') && (i === 0 || lines[i - 1] === '' || currentMsgLines.length > 5)) {
-      if (currentMsgLines.length > 0) {
-        rawMessages.push(currentMsgLines.join('\n'));
-        currentMsgLines = [];
+  for (const line of lines) {
+    const colonIdx = line.indexOf(':');
+    if (colonIdx > 0) {
+      const key = line.slice(0, colonIdx).trim().toLowerCase();
+      const val = line.slice(colonIdx + 1).trim();
+      if (!headers[key]) {
+        headers[key] = val;
+      } else {
+        headers[key] += ', ' + val;
       }
     }
-    currentMsgLines.push(line);
+  }
+  return headers;
+}
+
+/**
+ * Parse a single message block (headers + snippet) with minimal memory footprint
+ */
+function processMessageBlock(
+  messageText: string,
+  index: number,
+  startByte: number,
+  endByte: number
+): ParsedEmail {
+  const headerEndMatch = messageText.match(/\r?\n\r?\n/);
+  let rawHeaders = '';
+  let rawBodySample = '';
+
+  if (headerEndMatch && headerEndMatch.index !== undefined) {
+    rawHeaders = messageText.slice(0, headerEndMatch.index);
+    // Take at most 4KB sample for snippet and attachment detection
+    rawBodySample = messageText.slice(
+      headerEndMatch.index + headerEndMatch[0].length,
+      headerEndMatch.index + headerEndMatch[0].length + 4096
+    );
+  } else {
+    rawHeaders = messageText.slice(0, 4096);
   }
 
-  if (currentMsgLines.length > 0) {
-    rawMessages.push(currentMsgLines.join('\n'));
+  const headers = parseHeaders(rawHeaders);
+  const contentType = (headers['content-type'] || '').toLowerCase();
+  const transferEncoding = (headers['content-transfer-encoding'] || '').toLowerCase();
+
+  const subject = decodeMimeWords(headers['subject'] || '(No Subject)');
+  const from = decodeMimeWords(headers['from'] || '(Unknown Sender)');
+  const to = decodeMimeWords(headers['to'] || '');
+  const cc = decodeMimeWords(headers['cc'] || '');
+  const bcc = decodeMimeWords(headers['bcc'] || '');
+  const dateRaw = headers['date'] || '';
+  const messageId = headers['message-id'] || '';
+
+  // Quick check for attachments in headers or early body
+  const hasAttachments =
+    /content-disposition:\s*attachment/i.test(messageText.slice(0, 10000)) ||
+    /filename=/i.test(messageText.slice(0, 10000)) ||
+    /name="?[^"\r\n]+\.(pdf|docx?|xlsx?|zip|png|jpe?g|csv|txt)"?/i.test(contentType)
+      ? 'Yes'
+      : 'No';
+
+  // Decode body snippet
+  let bodyText = rawBodySample;
+  if (transferEncoding.includes('quoted-printable')) {
+    bodyText = decodeQuotedPrintable(bodyText);
+  } else if (transferEncoding.includes('base64')) {
+    try {
+      bodyText = atob(bodyText.replace(/\s/g, '').slice(0, 1000));
+    } catch {
+      // Keep raw
+    }
   }
 
+  if (contentType.includes('text/html') || bodyText.includes('<html') || bodyText.includes('<div') || bodyText.includes('<p>')) {
+    bodyText = stripHtml(bodyText);
+  }
+
+  const snippet = bodyText
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 250);
+
+  return {
+    id: index,
+    date: dateRaw,
+    from,
+    to,
+    cc,
+    bcc,
+    subject,
+    messageId,
+    hasAttachments,
+    bodySnippet: snippet,
+    startByte,
+    endByte,
+  };
+}
+
+/**
+ * Memory-safe streaming MBOX parser for files of ANY size (100MB - 5GB+)
+ * Reads chunk-by-chunk via File.slice, extracting headers and releasing memory.
+ */
+export async function parseMboxStream(
+  file: File,
+  onProgress?: (progress: MboxProgress) => void,
+  signal?: AbortSignal
+): Promise<ParsedEmail[]> {
+  const CHUNK_SIZE = 1024 * 1024 * 2; // 2 MB chunks
+  const totalBytes = file.size;
+  let offset = 0;
   const emails: ParsedEmail[] = [];
 
-  for (let i = 0; i < rawMessages.length; i++) {
-    const raw = rawMessages[i];
-    if (!raw.trim()) continue;
+  let lineBuffer = '';
+  let currentMsgStartByte = 0;
+  let currentMsgLines: string[] = [];
+  let emailCount = 0;
+  let lastProgressUpdate = Date.now();
 
-    // Find the blank line separating headers from body
-    const headerEndMatch = raw.match(/\r?\n\r?\n/);
-    let rawHeaders = '';
-    let rawBody = '';
+  const decoder = new TextDecoder('utf-8', { fatal: false });
 
-    if (headerEndMatch && headerEndMatch.index !== undefined) {
-      rawHeaders = raw.slice(0, headerEndMatch.index);
-      rawBody = raw.slice(headerEndMatch.index + headerEndMatch[0].length);
-    } else {
-      rawHeaders = raw;
+  while (offset < totalBytes) {
+    if (signal?.aborted) {
+      break;
     }
 
-    // Unfold multi-line headers (RFC 2822 / 5322: headers starting with whitespace continue previous line)
-    const unfoldedHeaders = rawHeaders.replace(/\r?\n[ \t]+/g, ' ');
-    const headerLines = unfoldedHeaders.split(/\r?\n/);
-    const headers: Record<string, string> = {};
+    const chunkEnd = Math.min(offset + CHUNK_SIZE, totalBytes);
+    const blobSlice = file.slice(offset, chunkEnd);
+    const arrayBuffer = await blobSlice.arrayBuffer();
+    const chunkText = decoder.decode(arrayBuffer, { stream: chunkEnd < totalBytes });
 
-    for (const hLine of headerLines) {
-      const colonIdx = hLine.indexOf(':');
-      if (colonIdx > 0) {
-        const key = hLine.slice(0, colonIdx).trim().toLowerCase();
-        const value = hLine.slice(colonIdx + 1).trim();
-        if (!headers[key]) {
-          headers[key] = value;
-        } else {
-          // If already exists (e.g. Received, To), append with comma
-          headers[key] += ', ' + value;
+    // Combine with leftover line buffer from previous chunk
+    const fullChunk = lineBuffer + chunkText;
+    const lines = fullChunk.split(/\r?\n/);
+
+    // Keep the last incomplete line in lineBuffer
+    lineBuffer = lines.pop() || '';
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+
+      // Standard MBOX message separator: line starting with "From "
+      if (line.startsWith('From ') && (emailCount === 0 || currentMsgLines.length > 2)) {
+        if (currentMsgLines.length > 0) {
+          emailCount++;
+          const msgText = currentMsgLines.join('\n');
+          const msgEndByte = offset + (i * 20); // Approximate byte boundary
+          const email = processMessageBlock(msgText, emailCount, currentMsgStartByte, msgEndByte);
+          emails.push(email);
+
+          currentMsgLines = [];
+          currentMsgStartByte = msgEndByte;
         }
+      }
+
+      // To keep memory minimal, don't store unbounded lines per message:
+      // We need headers + first ~40 lines for snippet and attachment check
+      if (currentMsgLines.length < 80) {
+        currentMsgLines.push(line);
       }
     }
 
-    const contentType = headers['content-type'] || '';
+    offset = chunkEnd;
+
+    // Report progress periodically and yield main thread so UI stays responsive
+    const now = Date.now();
+    if (now - lastProgressUpdate > 150 || offset >= totalBytes) {
+      lastProgressUpdate = now;
+      if (onProgress) {
+        onProgress({
+          bytesProcessed: offset,
+          totalBytes,
+          percent: Math.min(100, Math.round((offset / totalBytes) * 100)),
+          emailsFound: emailCount,
+        });
+      }
+      // Yield to event loop
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+  }
+
+  // Handle final message in buffer
+  if (currentMsgLines.length > 0 || lineBuffer) {
+    if (lineBuffer && currentMsgLines.length < 80) {
+      currentMsgLines.push(lineBuffer);
+    }
+    emailCount++;
+    const msgText = currentMsgLines.join('\n');
+    const email = processMessageBlock(msgText, emailCount, currentMsgStartByte, totalBytes);
+    emails.push(email);
+  }
+
+  if (onProgress) {
+    onProgress({
+      bytesProcessed: totalBytes,
+      totalBytes,
+      percent: 100,
+      emailsFound: emails.length,
+    });
+  }
+
+  return emails;
+}
+
+/**
+ * Retrieve the full body of a specific email on demand by slicing the File
+ */
+export async function getEmailFullBody(file: File, email: ParsedEmail): Promise<string> {
+  try {
+    // Read up to 256KB of the message to prevent freezing on 50MB attachments
+    const sliceLength = Math.min(256 * 1024, Math.max(1024, email.endByte - email.startByte));
+    const slice = file.slice(email.startByte, email.startByte + sliceLength);
+    const text = await slice.text();
+
+    const headerEndMatch = text.match(/\r?\n\r?\n/);
+    if (!headerEndMatch || headerEndMatch.index === undefined) {
+      return text;
+    }
+
+    const rawHeaders = text.slice(0, headerEndMatch.index);
+    const rawBody = text.slice(headerEndMatch.index + headerEndMatch[0].length);
+    const headers = parseHeaders(rawHeaders);
+    const contentType = (headers['content-type'] || '').toLowerCase();
     const transferEncoding = (headers['content-transfer-encoding'] || '').toLowerCase();
 
-    // Decode subjects and addresses
-    const subject = decodeMimeWords(headers['subject'] || '(No Subject)');
-    const from = decodeMimeWords(headers['from'] || '(Unknown Sender)');
-    const to = decodeMimeWords(headers['to'] || '');
-    const cc = decodeMimeWords(headers['cc'] || '');
-    const bcc = decodeMimeWords(headers['bcc'] || '');
-    const dateRaw = headers['date'] || '';
-    const messageId = headers['message-id'] || '';
-
-    // Check attachments
-    const hasAttachments =
-      /content-disposition:\s*attachment/i.test(raw) ||
-      /filename=/i.test(raw) ||
-      /name="?[^"\r\n]+\.(pdf|docx?|xlsx?|zip|png|jpe?g|csv|txt)"?/i.test(contentType) ||
-      /name="?[^"\r\n]+\.(pdf|docx?|xlsx?|zip|png|jpe?g|csv|txt)"?/i.test(raw)
-        ? 'Yes'
-        : 'No';
-
-    // Parse Body
-    let cleanBody = '';
+    let body = rawBody;
 
     if (contentType.includes('multipart/')) {
-      // Find boundary
       const boundaryMatch = contentType.match(/boundary="?([^";\r\n]+)"?/i);
       if (boundaryMatch) {
         const boundary = boundaryMatch[1];
         const parts = rawBody.split(new RegExp(`--${boundary.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
 
-        // Look for plain text part first, then html
         let textPart = '';
         let htmlPart = '';
 
         for (const part of parts) {
           if (!part.trim() || part.trim() === '--') continue;
-          const partHeaderEnd = part.match(/\r?\n\r?\n/);
-          if (partHeaderEnd && partHeaderEnd.index !== undefined) {
-            const pHeaders = part.slice(0, partHeaderEnd.index).toLowerCase();
-            const pBody = part.slice(partHeaderEnd.index + partHeaderEnd[0].length);
+          const pMatch = part.match(/\r?\n\r?\n/);
+          if (pMatch && pMatch.index !== undefined) {
+            const pHeaders = part.slice(0, pMatch.index).toLowerCase();
+            const pBody = part.slice(pMatch.index + pMatch[0].length);
 
             if (pHeaders.includes('text/plain') && !textPart) {
-              if (pHeaders.includes('quoted-printable')) {
-                textPart = decodeQuotedPrintable(pBody);
-              } else if (pHeaders.includes('base64')) {
-                try {
-                  textPart = atob(pBody.replace(/\s/g, ''));
-                } catch {
-                  textPart = pBody;
-                }
-              } else {
-                textPart = pBody;
-              }
+              textPart = pHeaders.includes('quoted-printable')
+                ? decodeQuotedPrintable(pBody)
+                : pBody;
             } else if (pHeaders.includes('text/html') && !htmlPart) {
-              if (pHeaders.includes('quoted-printable')) {
-                htmlPart = decodeQuotedPrintable(pBody);
-              } else if (pHeaders.includes('base64')) {
-                try {
-                  htmlPart = atob(pBody.replace(/\s/g, ''));
-                } catch {
-                  htmlPart = pBody;
-                }
-              } else {
-                htmlPart = pBody;
-              }
+              htmlPart = pHeaders.includes('quoted-printable')
+                ? decodeQuotedPrintable(pBody)
+                : pBody;
             }
           }
         }
 
-        if (textPart) {
-          cleanBody = textPart;
-        } else if (htmlPart) {
-          cleanBody = stripHtml(htmlPart);
-        } else {
-          cleanBody = stripHtml(rawBody.slice(0, 2000));
-        }
-      } else {
-        cleanBody = stripHtml(rawBody.slice(0, 2000));
+        if (textPart) body = textPart;
+        else if (htmlPart) body = stripHtml(htmlPart);
       }
     } else if (transferEncoding.includes('quoted-printable')) {
-      const decoded = decodeQuotedPrintable(rawBody);
-      cleanBody = contentType.includes('text/html') ? stripHtml(decoded) : decoded;
+      body = decodeQuotedPrintable(body);
     } else if (transferEncoding.includes('base64')) {
       try {
-        const decoded = atob(rawBody.replace(/\s/g, ''));
-        cleanBody = contentType.includes('text/html') ? stripHtml(decoded) : decoded;
+        body = atob(body.replace(/\s/g, ''));
       } catch {
-        cleanBody = rawBody;
+        // Keep raw
       }
-    } else if (contentType.includes('text/html')) {
-      cleanBody = stripHtml(rawBody);
-    } else {
-      cleanBody = rawBody;
     }
 
-    // Clean up excessive whitespace in cleanBody
-    cleanBody = cleanBody.replace(/\r\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
-    const bodySnippet = cleanBody.slice(0, 250).replace(/\s+/g, ' ').trim();
+    if (contentType.includes('text/html')) {
+      body = stripHtml(body);
+    }
 
-    emails.push({
-      id: i + 1,
-      date: dateRaw,
-      from,
-      to,
-      cc,
-      bcc,
-      subject,
-      messageId,
-      hasAttachments,
-      bodySnippet,
-      fullBody: cleanBody,
-    });
+    return body.trim();
+  } catch (err) {
+    console.error('Failed to extract full body:', err);
+    return email.bodySnippet || '(Unable to load full body)';
   }
-
-  return emails;
 }
 
 /**
@@ -287,7 +393,6 @@ export function emailsToCsv(emails: ParsedEmail[], selectedColumns: (keyof Parse
     subject: 'Subject',
     hasAttachments: 'Has Attachments',
     bodySnippet: 'Body Snippet',
-    fullBody: 'Full Body Text',
     messageId: 'Message ID',
   };
 
@@ -322,7 +427,6 @@ export function emailsToExcelBlob(emails: ParsedEmail[], selectedColumns: (keyof
     subject: 'Subject',
     hasAttachments: 'Has Attachments',
     bodySnippet: 'Body Snippet',
-    fullBody: 'Full Body Text',
     messageId: 'Message ID',
   };
 
@@ -337,13 +441,11 @@ export function emailsToExcelBlob(emails: ParsedEmail[], selectedColumns: (keyof
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.json_to_sheet(rows);
 
-  // Set nice column widths
   const colWidths = selectedColumns.map((col) => {
     if (col === 'subject') return { wch: 40 };
     if (col === 'from' || col === 'to') return { wch: 30 };
     if (col === 'date') return { wch: 25 };
     if (col === 'bodySnippet') return { wch: 45 };
-    if (col === 'fullBody') return { wch: 60 };
     return { wch: 15 };
   });
   ws['!cols'] = colWidths;

@@ -43,7 +43,10 @@ export const WorkspaceModal: React.FC<WorkspaceModalProps> = ({ tool, onClose })
     const loadedFiles: UploadedFile[] = [];
 
     for (const file of newFiles) {
-      const buffer = await file.arrayBuffer();
+      // Memory Protection: Do NOT load entire file into memory upfront for mbox-to-csv or files > 200MB!
+      // This allows multi-gigabyte MBOX files (e.g. Google Takeout 500MB - 5GB) to stream chunk-by-chunk without OOM crashes.
+      const shouldSkipBuffer = tool.id === 'mbox-to-csv' || file.size > 200 * 1024 * 1024;
+      const buffer = shouldSkipBuffer ? new ArrayBuffer(0) : await file.arrayBuffer();
       loadedFiles.push({
         id: `file-${Date.now()}-${Math.random()}`,
         file,

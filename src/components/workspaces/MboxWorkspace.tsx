@@ -1,10 +1,16 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { parseMbox, emailsToCsv, emailsToExcelBlob, ParsedEmail } from '../../lib/mboxEngine';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import {
+  parseMboxStream,
+  getEmailFullBody,
+  emailsToCsv,
+  emailsToExcelBlob,
+  ParsedEmail,
+  MboxProgress,
+} from '../../lib/mboxEngine';
 import { downloadBlob } from '../../lib/downloadHelper';
 import {
   Download,
   FileSpreadsheet,
-  FileText,
   Search,
   Mail,
   Paperclip,
@@ -12,17 +18,18 @@ import {
   ChevronLeft,
   ChevronRight,
   ShieldCheck,
-  Sparkles,
   Eye,
   X,
   SlidersHorizontal,
   Loader2,
+  StopCircle,
+  FileCheck,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 interface MboxWorkspaceProps {
   file?: File;
-  arrayBuffer: ArrayBuffer;
+  arrayBuffer?: ArrayBuffer;
   fileName: string;
 }
 
@@ -36,12 +43,17 @@ const AVAILABLE_COLUMNS: { id: keyof ParsedEmail; label: string; defaultSelected
   { id: 'bodySnippet', label: 'Body Snippet', defaultSelected: true },
   { id: 'cc', label: 'Cc', defaultSelected: false },
   { id: 'bcc', label: 'Bcc', defaultSelected: false },
-  { id: 'fullBody', label: 'Full Body Text', defaultSelected: false },
   { id: 'messageId', label: 'Message ID', defaultSelected: false },
 ];
 
-export const MboxWorkspace: React.FC<MboxWorkspaceProps> = ({ arrayBuffer, fileName }) => {
+export const MboxWorkspace: React.FC<MboxWorkspaceProps> = ({ file, fileName }) => {
   const [loading, setLoading] = useState(true);
+  const [progress, setProgress] = useState<MboxProgress>({
+    bytesProcessed: 0,
+    totalBytes: file?.size || 0,
+    percent: 0,
+    emailsFound: 0,
+  });
   const [emails, setEmails] = useState<ParsedEmail[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(1);
@@ -49,26 +61,68 @@ export const MboxWorkspace: React.FC<MboxWorkspaceProps> = ({ arrayBuffer, fileN
   const [selectedCols, setSelectedCols] = useState<(keyof ParsedEmail)[]>(
     AVAILABLE_COLUMNS.filter((c) => c.defaultSelected).map((c) => c.id)
   );
+
   const [activePreviewEmail, setActivePreviewEmail] = useState<ParsedEmail | null>(null);
+  const [activePreviewBody, setActivePreviewBody] = useState<string>('');
+  const [loadingBody, setLoadingBody] = useState(false);
+
   const [showColOptions, setShowColOptions] = useState(false);
   const [downloadSuccess, setDownloadSuccess] = useState<string | null>(null);
 
-  useEffect(() => {
-    setLoading(true);
-    // Allow UI to render loading state first
-    const timer = setTimeout(() => {
-      try {
-        const parsed = parseMbox(arrayBuffer);
-        setEmails(parsed);
-      } catch (err) {
-        console.error('Failed to parse MBOX:', err);
-      } finally {
-        setLoading(false);
-      }
-    }, 50);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
-    return () => clearTimeout(timer);
-  }, [arrayBuffer]);
+  useEffect(() => {
+    if (!file) return;
+
+    setLoading(true);
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
+    parseMboxStream(
+      file,
+      (prog) => {
+        setProgress(prog);
+      },
+      controller.signal
+    )
+      .then((parsed) => {
+        setEmails(parsed);
+      })
+      .catch((err) => {
+        console.error('Error streaming MBOX:', err);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+
+    return () => {
+      controller.abort();
+    };
+  }, [file]);
+
+  const handleStopParsing = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      setLoading(false);
+    }
+  };
+
+  // Open modal & dynamically load full body
+  const handleOpenEmail = async (email: ParsedEmail) => {
+    setActivePreviewEmail(email);
+    setActivePreviewBody(email.bodySnippet || '');
+    if (file) {
+      setLoadingBody(true);
+      try {
+        const full = await getEmailFullBody(file, email);
+        setActivePreviewBody(full);
+      } catch (err) {
+        console.error('Error fetching body:', err);
+      } finally {
+        setLoadingBody(false);
+      }
+    }
+  };
 
   // Filtered emails based on search query
   const filteredEmails = useMemo(() => {
@@ -102,7 +156,7 @@ export const MboxWorkspace: React.FC<MboxWorkspaceProps> = ({ arrayBuffer, fileN
   const handleToggleCol = (colId: keyof ParsedEmail) => {
     setSelectedCols((prev) => {
       if (prev.includes(colId)) {
-        if (prev.length === 1) return prev; // Keep at least one
+        if (prev.length === 1) return prev;
         return prev.filter((c) => c !== colId);
       }
       return [...prev, colId];
@@ -130,16 +184,49 @@ export const MboxWorkspace: React.FC<MboxWorkspaceProps> = ({ arrayBuffer, fileN
     setTimeout(() => setDownloadSuccess(null), 3000);
   };
 
+  const formatBytes = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center py-24 space-y-4 text-center">
-        <Loader2 className="w-10 h-10 animate-spin text-amber-600" />
-        <div>
-          <h3 className="text-base font-semibold text-neutral-900">Parsing MBOX File Locally</h3>
-          <p className="text-xs text-neutral-500 mt-1 max-w-sm">
-            Scanning email headers, MIME boundaries, and message bodies in your browser RAM...
+      <div className="flex flex-col items-center justify-center py-20 px-4 space-y-5 text-center max-w-lg mx-auto">
+        <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 shadow-xs">
+          <Loader2 className="w-6 h-6 animate-spin" />
+        </div>
+        <div className="space-y-1 w-full">
+          <h3 className="text-base font-bold text-neutral-900">Streaming & Parsing MBOX Archive</h3>
+          <p className="text-xs text-neutral-500">
+            Processing in 2MB memory-isolated chunks with zero server uploads.
           </p>
         </div>
+
+        {/* Progress Bar */}
+        <div className="w-full space-y-2 bg-neutral-100 p-4 rounded-2xl border border-neutral-200">
+          <div className="flex items-center justify-between text-xs text-neutral-700 font-semibold">
+            <span>
+              {formatBytes(progress.bytesProcessed)} / {formatBytes(progress.totalBytes)} ({progress.percent}%)
+            </span>
+            <span className="text-amber-700 font-bold">{progress.emailsFound.toLocaleString()} emails found</span>
+          </div>
+          <div className="w-full h-2.5 bg-neutral-200 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-r from-amber-500 to-rose-500 transition-all duration-150 rounded-full"
+              style={{ width: `${progress.percent}%` }}
+            />
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={handleStopParsing}
+          className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-neutral-700 hover:text-neutral-950 bg-white hover:bg-neutral-50 rounded-xl border border-neutral-300 shadow-2xs transition-colors cursor-pointer"
+        >
+          <StopCircle className="w-4 h-4 text-rose-500" />
+          <span>Stop Early & Keep {progress.emailsFound.toLocaleString()} Emails</span>
+        </button>
       </div>
     );
   }
@@ -166,7 +253,7 @@ export const MboxWorkspace: React.FC<MboxWorkspaceProps> = ({ arrayBuffer, fileN
           </div>
           <div className="min-w-0">
             <h4 className="text-sm font-bold text-neutral-900 truncate">{fileName}</h4>
-            <div className="flex items-center gap-2 mt-0.5 text-xs text-neutral-500">
+            <div className="flex flex-wrap items-center gap-2 mt-0.5 text-xs text-neutral-500">
               <span className="font-semibold text-neutral-800">{emails.length.toLocaleString()}</span> emails found
               <span>•</span>
               <span>{attachmentCount.toLocaleString()} with attachments</span>
@@ -316,7 +403,7 @@ export const MboxWorkspace: React.FC<MboxWorkspaceProps> = ({ arrayBuffer, fileN
               {paginatedEmails.map((email) => (
                 <tr
                   key={email.id}
-                  onClick={() => setActivePreviewEmail(email)}
+                  onClick={() => handleOpenEmail(email)}
                   className="hover:bg-neutral-50/80 transition-colors cursor-pointer group"
                 >
                   <td className="py-2.5 px-3 text-center text-neutral-400 font-mono text-[11px]">
@@ -402,7 +489,7 @@ export const MboxWorkspace: React.FC<MboxWorkspaceProps> = ({ arrayBuffer, fileN
               </div>
               <button
                 onClick={() => setActivePreviewEmail(null)}
-                className="p-1 rounded-lg text-neutral-400 hover:text-neutral-700 hover:bg-neutral-200"
+                className="p-1 rounded-lg text-neutral-400 hover:text-neutral-700 hover:bg-neutral-200 cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -433,11 +520,18 @@ export const MboxWorkspace: React.FC<MboxWorkspaceProps> = ({ arrayBuffer, fileN
               </div>
 
               <div>
-                <h5 className="font-semibold text-neutral-700 uppercase tracking-wider text-[10px] mb-2">
-                  Message Body
-                </h5>
+                <div className="flex items-center justify-between mb-2">
+                  <h5 className="font-semibold text-neutral-700 uppercase tracking-wider text-[10px]">
+                    Message Body
+                  </h5>
+                  {loadingBody && (
+                    <span className="text-[10px] text-amber-600 flex items-center gap-1 font-medium">
+                      <Loader2 className="w-3 h-3 animate-spin" /> Slicing full message from file...
+                    </span>
+                  )}
+                </div>
                 <pre className="p-4 bg-neutral-50 rounded-xl border border-neutral-200 font-sans text-xs text-neutral-800 whitespace-pre-wrap break-words leading-relaxed max-h-96 overflow-y-auto">
-                  {activePreviewEmail.fullBody || activePreviewEmail.bodySnippet || '(Empty body)'}
+                  {activePreviewBody || '(Empty body)'}
                 </pre>
               </div>
             </div>
@@ -445,7 +539,7 @@ export const MboxWorkspace: React.FC<MboxWorkspaceProps> = ({ arrayBuffer, fileN
             <div className="px-5 py-3 border-t border-neutral-200 bg-neutral-50 flex justify-end">
               <button
                 onClick={() => setActivePreviewEmail(null)}
-                className="px-4 py-2 bg-neutral-900 text-white rounded-xl text-xs font-semibold hover:bg-neutral-800"
+                className="px-4 py-2 bg-neutral-900 text-white rounded-xl text-xs font-semibold hover:bg-neutral-800 cursor-pointer"
               >
                 Close Preview
               </button>
