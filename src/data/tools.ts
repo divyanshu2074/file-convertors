@@ -272,6 +272,17 @@ export const TOOLS: ToolDef[] = [
     color: 'from-emerald-500 to-cyan-600',
     acceptedFiles: 'application/pdf',
   },
+
+  {
+    id: 'mbox-to-csv',
+    title: 'MBOX to CSV',
+    shortDesc: 'Convert Google Takeout and Thunderbird MBOX email archives to CSV or Excel.',
+    category: 'advanced',
+    iconName: 'Mail',
+    color: 'from-amber-500 to-rose-600',
+    acceptedFiles: '.mbox,text/plain,application/mbox',
+    badge: 'Email Parser',
+  },
 ];
 
 export const CATEGORIES = [

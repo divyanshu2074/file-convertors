@@ -14,6 +14,7 @@ const ScanWorkspace = lazy(() => import('./workspaces/ScanWorkspace').then((m) =
 const CropWorkspace = lazy(() => import('./workspaces/CropWorkspace').then((m) => ({ default: m.CropWorkspace })));
 const FormsWorkspace = lazy(() => import('./workspaces/FormsWorkspace').then((m) => ({ default: m.FormsWorkspace })));
 const OcrWorkspace = lazy(() => import('./workspaces/OcrWorkspace').then((m) => ({ default: m.OcrWorkspace })));
+const MboxWorkspace = lazy(() => import('./workspaces/MboxWorkspace').then((m) => ({ default: m.MboxWorkspace })));
 const GenericPdfWorkspace = lazy(() => import('./workspaces/GenericPdfWorkspace').then((m) => ({ default: m.GenericPdfWorkspace })));
 
 const WorkspaceFallback = () => (
@@ -192,6 +193,14 @@ export const WorkspaceModal: React.FC<WorkspaceModalProps> = ({ tool, onClose })
                   />
                 )}
 
+                {tool.id === 'mbox-to-csv' && files[0] && (
+                  <MboxWorkspace
+                    file={files[0].file}
+                    arrayBuffer={files[0].arrayBuffer}
+                    fileName={files[0].name}
+                  />
+                )}
+
                 {/* Generic Workspace for remaining tools */}
                 {tool.id !== 'organize-pdf' &&
                   tool.id !== 'sign-pdf' &&
@@ -200,7 +209,8 @@ export const WorkspaceModal: React.FC<WorkspaceModalProps> = ({ tool, onClose })
                   tool.id !== 'compare-pdf' &&
                   tool.id !== 'crop-pdf' &&
                   tool.id !== 'pdf-forms' &&
-                  tool.id !== 'ocr-pdf' && (
+                  tool.id !== 'ocr-pdf' &&
+                  tool.id !== 'mbox-to-csv' && (
                     <GenericPdfWorkspace
                       tool={tool}
                       files={files}

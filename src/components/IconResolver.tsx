@@ -28,6 +28,7 @@ import {
   ScanText,
   GitCompare,
   CheckSquare,
+  Mail,
   HelpCircle,
 } from 'lucide-react';
 
@@ -94,6 +95,8 @@ export const IconResolver: React.FC<IconResolverProps> = ({ name, className = 'w
       return <GitCompare className={className} />;
     case 'CheckSquare':
       return <CheckSquare className={className} />;
+    case 'Mail':
+      return <Mail className={className} />;
     default:
       return <HelpCircle className={className} />;
   }

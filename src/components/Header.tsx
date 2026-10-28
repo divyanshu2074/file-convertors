@@ -1,12 +1,12 @@
 import React from 'react';
-import { ShieldCheck, Search, Zap, FileSpreadsheet } from 'lucide-react';
+import { ShieldCheck, Search } from 'lucide-react';
 import { OfflineCacheButton } from './OfflineCacheButton';
 
 interface HeaderProps {
   searchQuery: string;
-  setSearchQuery: (query: string) => void;
+  setSearchQuery: (q: string) => void;
   selectedCategory: string;
-  setSelectedCategory: (category: any) => void;
+  setSelectedCategory: (cat: string) => void;
   categories: readonly { id: string; label: string }[];
   currentView?: 'tools' | 'blog';
   onNavigateBlog?: () => void;
@@ -26,16 +26,16 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenContact,
 }) => {
   return (
-    <header className="border-b border-neutral-200 bg-white/80 backdrop-blur-md sticky top-0 z-40">
+    <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-neutral-200 shadow-2xs transition-all">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16 gap-4">
-          {/* Logo & Brand */}
+        <div className="flex items-center justify-between h-16 sm:h-20 gap-3 sm:gap-4">
+          {/* Logo Brand Link */}
           <div
             onClick={onNavigateHome}
-            className="flex items-center gap-3 cursor-pointer group"
+            className="flex items-center gap-2.5 sm:gap-3 cursor-pointer group shrink-0"
           >
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 via-violet-600 to-purple-600 flex items-center justify-center text-white shadow-md shadow-indigo-600/20 group-hover:scale-105 transition-transform">
-              <FileSpreadsheet className="w-5 h-5" />
+            <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-2xl bg-gradient-to-tr from-neutral-900 via-indigo-950 to-neutral-800 flex items-center justify-center text-white shadow-sm group-hover:scale-105 transition-transform">
+              <span className="font-black text-sm sm:text-base tracking-tighter">DZ</span>
             </div>
             <div>
               <div className="flex items-center gap-2">
@@ -57,7 +57,7 @@ export const Header: React.FC<HeaderProps> = ({
             <input
               type="text"
               aria-label="Search all document tools"
-              placeholder="Search all 28 tools (e.g. merge, word, sign, ocr, split)..."
+              placeholder="Search all 29 tools (e.g. mbox, merge, word, sign, ocr)..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-10 pr-4 py-2 bg-neutral-100/80 hover:bg-neutral-100 focus:bg-white text-sm rounded-xl border border-transparent focus:border-neutral-300 focus:outline-none focus:ring-2 focus:ring-neutral-900/5 transition-all text-neutral-800 placeholder-neutral-400"

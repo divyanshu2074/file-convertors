@@ -250,7 +250,7 @@ for (const tool of allTools) {
             <span style="font-size: 0.75rem; color: #059669; margin-left: 0.35rem;">• 100% Client-Side</span>
           </div>
         </a>
-        <a href="${BASE_URL}/" class="cta-btn" style="padding: 0.5rem 1rem; font-size: 0.8125rem; border-radius: 0.5rem;">All 28 Tools</a>
+        <a href="${BASE_URL}/" class="cta-btn" style="padding: 0.5rem 1rem; font-size: 0.8125rem; border-radius: 0.5rem;">All Tools</a>
       </div>
     </header>
 
