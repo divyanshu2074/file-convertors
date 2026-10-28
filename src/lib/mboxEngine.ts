@@ -45,14 +45,21 @@ export function decodeMimeWords(str: string): string {
         }
         return new TextDecoder(charset).decode(bytes);
       } else if (enc === 'Q') {
-        const unescaped = text.replace(/_/g, ' ').replace(/=([A-Fa-f0-9]{2})/g, (_match: string, hex: string) => {
-          return String.fromCharCode(parseInt(hex, 16));
-        });
-        const bytes = new Uint8Array(unescaped.length);
+        // Quoted-Printable within MIME word
+        const unescaped = text.replace(/_/g, ' ');
+        const bytes: number[] = [];
         for (let i = 0; i < unescaped.length; i++) {
-          bytes[i] = unescaped.charCodeAt(i);
+          if (unescaped[i] === '=' && i + 2 < unescaped.length) {
+            const hex = unescaped.slice(i + 1, i + 3);
+            if (/^[0-9A-Fa-f]{2}$/.test(hex)) {
+              bytes.push(parseInt(hex, 16));
+              i += 2;
+              continue;
+            }
+          }
+          bytes.push(unescaped.charCodeAt(i));
         }
-        return new TextDecoder(charset).decode(bytes);
+        return new TextDecoder(charset).decode(new Uint8Array(bytes));
       }
     } catch {
       return text;
@@ -62,28 +69,46 @@ export function decodeMimeWords(str: string): string {
 }
 
 /**
- * Decode Quoted-Printable transfer encoding
+ * Decode Quoted-Printable transfer encoding with UTF-8 multibyte safety
  */
 export function decodeQuotedPrintable(input: string): string {
   if (!input) return '';
-  const clean = input.replace(/=\r?\n/g, '');
-  return clean.replace(/=([A-Fa-f0-9]{2})/g, (_match: string, hex: string) => {
-    try {
-      return String.fromCharCode(parseInt(hex, 16));
-    } catch {
-      return _match;
+  // Remove soft line breaks: =\r\n or =\n
+  const withoutSoftBreaks = input.replace(/=\r?\n/g, '');
+  const bytes: number[] = [];
+
+  for (let i = 0; i < withoutSoftBreaks.length; i++) {
+    const char = withoutSoftBreaks[i];
+    if (char === '=' && i + 2 < withoutSoftBreaks.length) {
+      const hex = withoutSoftBreaks.slice(i + 1, i + 3);
+      if (/^[0-9A-Fa-f]{2}$/.test(hex)) {
+        bytes.push(parseInt(hex, 16));
+        i += 2;
+        continue;
+      }
     }
-  });
+    bytes.push(withoutSoftBreaks.charCodeAt(i));
+  }
+
+  try {
+    return new TextDecoder('utf-8', { fatal: false }).decode(new Uint8Array(bytes));
+  } catch {
+    return withoutSoftBreaks;
+  }
 }
 
 /**
- * Clean up HTML tags and entities to extract legible plain text
+ * Clean up HTML tags, CSS blocks, and HTML entities to extract legible plain text
  */
 export function stripHtml(html: string): string {
   if (!html) return '';
   return html
-    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<!--[\s\S]*?-->/g, ' ')
+    .replace(/@import\s+url\([^)]+\);?/gi, ' ')
+    .replace(/body\s*\{[^}]*\}/gi, ' ')
+    .replace(/\.[a-zA-Z0-9_-]+\s*\{[^}]*\}/gi, ' ')
     .replace(/<[^>]+>/g, ' ')
     .replace(/&nbsp;/gi, ' ')
     .replace(/&amp;/gi, '&')
@@ -91,14 +116,46 @@ export function stripHtml(html: string): string {
     .replace(/&gt;/gi, '>')
     .replace(/&quot;/gi, '"')
     .replace(/&#39;/gi, "'")
+    .replace(/&[a-z0-9#]+;/gi, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 }
 
 /**
- * Parse headers from an email header block
+ * Clean up redundant double quotes around email display names
+ */
+export function cleanAddress(str: string): string {
+  if (!str) return '';
+  // Normalize multiple consecutive quotes e.g. ""Name"" -> Name
+  let cleaned = str.replace(/"+/g, '"').trim();
+  cleaned = cleaned.replace(/^"([^"]+)"\s*(<[^>]+>)/, '$1 $2');
+  return cleaned;
+}
+
+/**
+ * Detect attachments from headers and raw message content
+ */
+export function detectHasAttachments(rawHeaders: string, rawBody: string): string {
+  const combined = (rawHeaders + '\n' + rawBody.slice(0, 8192)).toLowerCase();
+  const hasAttachment =
+    combined.includes('content-disposition: attachment') ||
+    combined.includes('content-disposition: inline; filename=') ||
+    /filename\s*=\s*"?[^"\r\n]+\.(pdf|docx?|xlsx?|pptx?|zip|rar|7z|png|jpe?g|gif|webp|csv|txt)"?/i.test(combined) ||
+    /name\s*=\s*"?[^"\r\n]+\.(pdf|docx?|xlsx?|pptx?|zip|rar|7z|png|jpe?g|gif|webp|csv|txt)"?/i.test(combined) ||
+    combined.includes('application/pdf') ||
+    combined.includes('application/zip') ||
+    combined.includes('application/octet-stream') ||
+    combined.includes('application/vnd.openxmlformats') ||
+    combined.includes('application/msword');
+
+  return hasAttachment ? 'Yes' : 'No';
+}
+
+/**
+ * Parse headers from an email header block into an object
  */
 function parseHeaders(rawHeaders: string): Record<string, string> {
+  // Unfold multi-line headers (RFC 2822: lines starting with space or tab continue the previous header)
   const unfolded = rawHeaders.replace(/\r?\n[ \t]+/g, ' ');
   const lines = unfolded.split(/\r?\n/);
   const headers: Record<string, string> = {};
@@ -119,69 +176,163 @@ function parseHeaders(rawHeaders: string): Record<string, string> {
 }
 
 /**
- * Parse a single message block (headers + snippet) with minimal memory footprint
+ * Extract clean, human-readable text from an email body without any MIME boundaries, headers, or Base64 garbage
+ */
+export function extractCleanBody(rawBody: string, mainContentType: string, mainTransferEncoding: string): string {
+  if (!rawBody) return '';
+
+  // 1. Look for text/plain part in multipart messages
+  const plainMatch = rawBody.match(/Content-Type:\s*text\/plain[^\r\n]*([\s\S]*?)(?=\r?\n--|\r?\nFrom\s+|$)/i);
+  if (plainMatch) {
+    const block = plainMatch[1];
+    const headerEnd = block.match(/\r?\n\r?\n/);
+    if (headerEnd && headerEnd.index !== undefined) {
+      const partHeaders = block.slice(0, headerEnd.index).toLowerCase();
+      let partContent = block.slice(headerEnd.index + headerEnd[0].length);
+      partContent = partContent.split(/\r?\n--/)[0];
+
+      if (partHeaders.includes('quoted-printable') || mainTransferEncoding.includes('quoted-printable')) {
+        partContent = decodeQuotedPrintable(partContent);
+      } else if (partHeaders.includes('base64') || mainTransferEncoding.includes('base64')) {
+        try {
+          partContent = atob(partContent.replace(/[\s\r\n]/g, ''));
+        } catch {
+          // ignore
+        }
+      }
+      const clean = partContent.replace(/\r?\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+      if (clean.length > 0) return clean;
+    }
+  }
+
+  // 2. Look for text/html part
+  const htmlMatch = rawBody.match(/Content-Type:\s*text\/html[^\r\n]*([\s\S]*?)(?=\r?\n--|\r?\nFrom\s+|$)/i);
+  if (htmlMatch) {
+    const block = htmlMatch[1];
+    const headerEnd = block.match(/\r?\n\r?\n/);
+    if (headerEnd && headerEnd.index !== undefined) {
+      const partHeaders = block.slice(0, headerEnd.index).toLowerCase();
+      let partContent = block.slice(headerEnd.index + headerEnd[0].length);
+      partContent = partContent.split(/\r?\n--/)[0];
+
+      if (partHeaders.includes('base64') || mainTransferEncoding.includes('base64')) {
+        try {
+          partContent = atob(partContent.replace(/[\s\r\n]/g, ''));
+        } catch {
+          // ignore
+        }
+      } else if (partHeaders.includes('quoted-printable') || mainTransferEncoding.includes('quoted-printable')) {
+        partContent = decodeQuotedPrintable(partContent);
+      }
+      const clean = stripHtml(partContent);
+      if (clean.length > 0) return clean;
+    }
+  }
+
+  // 3. Simple body fallback: strip boundary lines and headers
+  let fallback = rawBody;
+  if (fallback.includes('--')) {
+    fallback = fallback
+      .replace(/^--[A-Za-z0-9=_+-]+.*$/gm, '')
+      .replace(/^(?:Content-Type|Content-Transfer-Encoding|Content-Disposition|MIME-Version):.*$/gmi, '');
+  }
+
+  if (mainTransferEncoding.includes('quoted-printable')) {
+    fallback = decodeQuotedPrintable(fallback);
+  } else if (mainTransferEncoding.includes('base64')) {
+    try {
+      fallback = atob(fallback.replace(/[\s\r\n]/g, ''));
+    } catch {
+      // ignore
+    }
+  }
+
+  if (mainContentType.includes('text/html') || fallback.includes('<html') || fallback.includes('<div') || fallback.includes('<p>')) {
+    fallback = stripHtml(fallback);
+  }
+
+  return fallback.replace(/\r?\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
+/**
+ * Validate whether a line is an authentic MBOX message separator
+ */
+function isMboxSeparatorLine(line: string, prevLineWasEmpty: boolean, isStartOfFile: boolean): boolean {
+  if (!line.startsWith('From ')) return false;
+  // In MBOX standard, every From_ line must be preceded by a blank line or start of file
+  if (!prevLineWasEmpty && !isStartOfFile) return false;
+
+  // Must have a sender token and a timestamp or dash e.g.:
+  // "From 1792401739270@xxx Tue Oct 27 07:17:13 2026"
+  // "From ???@??? Tue Oct 27 07:17:13 2026"
+  // "From MAILER-DAEMON Mon Jan 01 00:00:00 2001"
+  // "From - Mon Jan 01 00:00:00 2001"
+  // "From user@example.com Wed Jun 24 13:56:32 2026"
+  return (
+    /^From\s+[^\s\r\n]+(?:\s+(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\b|\s+.*?\d{4})/i.test(line) ||
+    /^From\s+-\s+/i.test(line)
+  );
+}
+
+/**
+ * Process a single raw message block into a clean ParsedEmail object.
+ * Returns null if the block is not a valid email (e.g. spurious ghost split).
  */
 function processMessageBlock(
   messageText: string,
   index: number,
   startByte: number,
   endByte: number
-): ParsedEmail {
+): ParsedEmail | null {
+  if (!messageText || messageText.length < 15) return null;
+
   const headerEndMatch = messageText.match(/\r?\n\r?\n/);
   let rawHeaders = '';
-  let rawBodySample = '';
+  let rawBody = '';
 
   if (headerEndMatch && headerEndMatch.index !== undefined) {
     rawHeaders = messageText.slice(0, headerEndMatch.index);
-    // Take at most 4KB sample for snippet and attachment detection
-    rawBodySample = messageText.slice(
-      headerEndMatch.index + headerEndMatch[0].length,
-      headerEndMatch.index + headerEndMatch[0].length + 4096
-    );
+    rawBody = messageText.slice(headerEndMatch.index + headerEndMatch[0].length);
   } else {
-    rawHeaders = messageText.slice(0, 4096);
+    rawHeaders = messageText;
   }
 
   const headers = parseHeaders(rawHeaders);
+
+  // Validate that this block actually has standard email headers
+  const hasDateHeader = !!headers['date'];
+  const hasFromHeader = !!headers['from'];
+  const hasSubjectHeader = !!headers['subject'];
+  const hasMessageId = !!headers['message-id'];
+  const hasToHeader = !!headers['to'];
+
+  // GHOST ROW FILTER: If a block has NO date, NO from, NO subject, and NO message-id,
+  // it is simply plain text or body lines that contained "From ", NOT an email!
+  if (!hasDateHeader && !hasFromHeader && !hasSubjectHeader && !hasMessageId && !hasToHeader) {
+    return null;
+  }
+
   const contentType = (headers['content-type'] || '').toLowerCase();
   const transferEncoding = (headers['content-transfer-encoding'] || '').toLowerCase();
 
   const subject = decodeMimeWords(headers['subject'] || '(No Subject)');
-  const from = decodeMimeWords(headers['from'] || '(Unknown Sender)');
-  const to = decodeMimeWords(headers['to'] || '');
-  const cc = decodeMimeWords(headers['cc'] || '');
-  const bcc = decodeMimeWords(headers['bcc'] || '');
+  const from = cleanAddress(decodeMimeWords(headers['from'] || '(Unknown Sender)'));
+  const to = cleanAddress(decodeMimeWords(headers['to'] || ''));
+  const cc = cleanAddress(decodeMimeWords(headers['cc'] || ''));
+  const bcc = cleanAddress(decodeMimeWords(headers['bcc'] || ''));
   const dateRaw = headers['date'] || '';
   const messageId = headers['message-id'] || '';
 
-  // Quick check for attachments in headers or early body
-  const hasAttachments =
-    /content-disposition:\s*attachment/i.test(messageText.slice(0, 10000)) ||
-    /filename=/i.test(messageText.slice(0, 10000)) ||
-    /name="?[^"\r\n]+\.(pdf|docx?|xlsx?|zip|png|jpe?g|csv|txt)"?/i.test(contentType)
-      ? 'Yes'
-      : 'No';
-
-  // Decode body snippet
-  let bodyText = rawBodySample;
-  if (transferEncoding.includes('quoted-printable')) {
-    bodyText = decodeQuotedPrintable(bodyText);
-  } else if (transferEncoding.includes('base64')) {
-    try {
-      bodyText = atob(bodyText.replace(/\s/g, '').slice(0, 1000));
-    } catch {
-      // Keep raw
-    }
+  // If both from and subject are default unknown/empty, and date is empty, skip ghost
+  if (from === '(Unknown Sender)' && subject === '(No Subject)' && !dateRaw) {
+    return null;
   }
 
-  if (contentType.includes('text/html') || bodyText.includes('<html') || bodyText.includes('<div') || bodyText.includes('<p>')) {
-    bodyText = stripHtml(bodyText);
-  }
+  const hasAttachments = detectHasAttachments(rawHeaders, rawBody);
 
-  const snippet = bodyText
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, 250);
+  // Clean body snippet: extract real text, strip boundaries, CSS, and base64
+  const cleanBodyText = extractCleanBody(rawBody, contentType, transferEncoding);
+  const snippet = cleanBodyText.replace(/\s+/g, ' ').trim().slice(0, 250);
 
   return {
     id: index,
@@ -216,7 +367,8 @@ export async function parseMboxStream(
   let lineBuffer = '';
   let currentMsgStartByte = 0;
   let currentMsgLines: string[] = [];
-  let emailCount = 0;
+  let isStartOfFile = true;
+  let prevLineWasEmpty = true;
   let lastProgressUpdate = Date.now();
 
   const decoder = new TextDecoder('utf-8', { fatal: false });
@@ -240,26 +392,30 @@ export async function parseMboxStream(
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
+      const lineEmpty = line.trim().length === 0;
 
-      // Standard MBOX message separator: line starting with "From "
-      if (line.startsWith('From ') && (emailCount === 0 || currentMsgLines.length > 2)) {
+      // Check if line is a genuine MBOX message separator
+      if (isMboxSeparatorLine(line, prevLineWasEmpty, isStartOfFile)) {
         if (currentMsgLines.length > 0) {
-          emailCount++;
           const msgText = currentMsgLines.join('\n');
-          const msgEndByte = offset + (i * 20); // Approximate byte boundary
-          const email = processMessageBlock(msgText, emailCount, currentMsgStartByte, msgEndByte);
-          emails.push(email);
-
+          const msgEndByte = offset + (i * 25);
+          const email = processMessageBlock(msgText, emails.length + 1, currentMsgStartByte, msgEndByte);
+          if (email) {
+            emails.push(email);
+          }
           currentMsgLines = [];
           currentMsgStartByte = msgEndByte;
         }
       }
 
-      // To keep memory minimal, don't store unbounded lines per message:
-      // We need headers + first ~40 lines for snippet and attachment check
-      if (currentMsgLines.length < 80) {
+      // Buffer lines for the message:
+      // We need headers + first ~200 lines for clean snippet and attachment detection
+      if (currentMsgLines.length < 200) {
         currentMsgLines.push(line);
       }
+
+      prevLineWasEmpty = lineEmpty;
+      isStartOfFile = false;
     }
 
     offset = chunkEnd;
@@ -273,7 +429,7 @@ export async function parseMboxStream(
           bytesProcessed: offset,
           totalBytes,
           percent: Math.min(100, Math.round((offset / totalBytes) * 100)),
-          emailsFound: emailCount,
+          emailsFound: emails.length,
         });
       }
       // Yield to event loop
@@ -282,14 +438,21 @@ export async function parseMboxStream(
   }
 
   // Handle final message in buffer
-  if (currentMsgLines.length > 0 || lineBuffer) {
-    if (lineBuffer && currentMsgLines.length < 80) {
-      currentMsgLines.push(lineBuffer);
-    }
-    emailCount++;
+  if (lineBuffer && currentMsgLines.length < 200) {
+    currentMsgLines.push(lineBuffer);
+  }
+
+  if (currentMsgLines.length > 0) {
     const msgText = currentMsgLines.join('\n');
-    const email = processMessageBlock(msgText, emailCount, currentMsgStartByte, totalBytes);
-    emails.push(email);
+    const email = processMessageBlock(msgText, emails.length + 1, currentMsgStartByte, totalBytes);
+    if (email) {
+      emails.push(email);
+    }
+  }
+
+  // Re-number IDs sequentially 1..N to guarantee strict ordering
+  for (let i = 0; i < emails.length; i++) {
+    emails[i].id = i + 1;
   }
 
   if (onProgress) {
@@ -309,8 +472,8 @@ export async function parseMboxStream(
  */
 export async function getEmailFullBody(file: File, email: ParsedEmail): Promise<string> {
   try {
-    // Read up to 256KB of the message to prevent freezing on 50MB attachments
-    const sliceLength = Math.min(256 * 1024, Math.max(1024, email.endByte - email.startByte));
+    // Read up to 512KB of the message to prevent freezing on 50MB attachments
+    const sliceLength = Math.min(512 * 1024, Math.max(1024, email.endByte - email.startByte));
     const slice = file.slice(email.startByte, email.startByte + sliceLength);
     const text = await slice.text();
 
@@ -325,54 +488,7 @@ export async function getEmailFullBody(file: File, email: ParsedEmail): Promise<
     const contentType = (headers['content-type'] || '').toLowerCase();
     const transferEncoding = (headers['content-transfer-encoding'] || '').toLowerCase();
 
-    let body = rawBody;
-
-    if (contentType.includes('multipart/')) {
-      const boundaryMatch = contentType.match(/boundary="?([^";\r\n]+)"?/i);
-      if (boundaryMatch) {
-        const boundary = boundaryMatch[1];
-        const parts = rawBody.split(new RegExp(`--${boundary.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
-
-        let textPart = '';
-        let htmlPart = '';
-
-        for (const part of parts) {
-          if (!part.trim() || part.trim() === '--') continue;
-          const pMatch = part.match(/\r?\n\r?\n/);
-          if (pMatch && pMatch.index !== undefined) {
-            const pHeaders = part.slice(0, pMatch.index).toLowerCase();
-            const pBody = part.slice(pMatch.index + pMatch[0].length);
-
-            if (pHeaders.includes('text/plain') && !textPart) {
-              textPart = pHeaders.includes('quoted-printable')
-                ? decodeQuotedPrintable(pBody)
-                : pBody;
-            } else if (pHeaders.includes('text/html') && !htmlPart) {
-              htmlPart = pHeaders.includes('quoted-printable')
-                ? decodeQuotedPrintable(pBody)
-                : pBody;
-            }
-          }
-        }
-
-        if (textPart) body = textPart;
-        else if (htmlPart) body = stripHtml(htmlPart);
-      }
-    } else if (transferEncoding.includes('quoted-printable')) {
-      body = decodeQuotedPrintable(body);
-    } else if (transferEncoding.includes('base64')) {
-      try {
-        body = atob(body.replace(/\s/g, ''));
-      } catch {
-        // Keep raw
-      }
-    }
-
-    if (contentType.includes('text/html')) {
-      body = stripHtml(body);
-    }
-
-    return body.trim();
+    return extractCleanBody(rawBody, contentType, transferEncoding);
   } catch (err) {
     console.error('Failed to extract full body:', err);
     return email.bodySnippet || '(Unable to load full body)';
